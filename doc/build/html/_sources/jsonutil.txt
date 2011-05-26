@@ -1,0 +1,12 @@
+jsonrpc.jsonutil
+================
+.. automodule:: jsonrpc.jsonutil
+
+.. py:function:: encode(obj, skipkeys=False, ensure_ascii=True, check_circular=True, allow_nan=True, cls=None, indent=None, separators=None, encoding='utf-8', **kw)
+
+   Serialize obj to json, if it is not of a type which the encoder can handle,
+   make it the proper type. Args and kw are as in json.dumps
+
+.. py:function:: decode(str, encoding=None, cls=None, object_hook=None, parse_float=None, parse_int=None, parse_constant=None, **kw)
+
+   Return an object from a json string.  This is just :py:func:`json.loads` renamed

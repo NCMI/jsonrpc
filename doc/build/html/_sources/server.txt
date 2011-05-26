@@ -1,0 +1,6 @@
+JSON-RPC Server
+===============
+
+.. automodule:: jsonrpc.server
+   :members:
+

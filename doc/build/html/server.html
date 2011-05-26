@@ -1,0 +1,163 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>JSON-RPC Server &mdash; JSONRPC v1.0 documentation</title>
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="JSONRPC v1.0 documentation" href="index.html" />
+    <link rel="next" title="JSON-RPC Proxy" href="proxy.html" />
+    <link rel="prev" title="Welcome to JSONRPC’s documentation!" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="proxy.html" title="JSON-RPC Proxy"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Welcome to JSONRPC’s documentation!"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">JSONRPC v1.0 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="module-jsonrpc.server">
+<span id="json-rpc-server"></span><h1>JSON-RPC Server<a class="headerlink" href="#module-jsonrpc.server" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="jsonrpc.server.JSON_RPC">
+<em class="property">class </em><tt class="descclassname">jsonrpc.server.</tt><tt class="descname">JSON_RPC</tt><big>(</big><em>*args</em>, <em>**kwargs</em><big>)</big><a class="reference internal" href="_modules/jsonrpc/server.html#JSON_RPC"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#jsonrpc.server.JSON_RPC" title="Permalink to this definition">¶</a></dt>
+<dd><p>This class implements a JSON-RPC 2.0 server as a Twisted Resource</p>
+<dl class="method">
+<dt id="jsonrpc.server.JSON_RPC.customize">
+<tt class="descname">customize</tt><big>(</big><em>eventhandler</em><big>)</big><a class="reference internal" href="_modules/jsonrpc/server.html#JSON_RPC.customize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#jsonrpc.server.JSON_RPC.customize" title="Permalink to this definition">¶</a></dt>
+<dd><p>customize the behavior of the server</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="jsonrpc.server.JSON_RPC.eventhandler">
+<tt class="descname">eventhandler</tt><a class="headerlink" href="#jsonrpc.server.JSON_RPC.eventhandler" title="Permalink to this definition">¶</a></dt>
+<dd><p>set by <a class="reference internal" href="#jsonrpc.server.JSON_RPC.customize" title="jsonrpc.server.JSON_RPC.customize"><tt class="xref py py-meth docutils literal"><span class="pre">customize()</span></tt></a> used to change the behavior of the server</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="jsonrpc.server.ServerEvents">
+<em class="property">class </em><tt class="descclassname">jsonrpc.server.</tt><tt class="descname">ServerEvents</tt><big>(</big><em>jsonrpc</em><big>)</big><a class="reference internal" href="_modules/jsonrpc/server.html#ServerEvents"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#jsonrpc.server.ServerEvents" title="Permalink to this definition">¶</a></dt>
+<dd><p>Subclass this and pass to <tt class="xref py py-meth docutils literal"><span class="pre">jsonrpc.customize()</span></tt> to customize the jsonrpc server</p>
+<dl class="method">
+<dt id="jsonrpc.server.ServerEvents.callmethod">
+<tt class="descname">callmethod</tt><big>(</big><em>request</em>, <em>method</em>, <em>kwargs</em>, <em>args</em>, <em>**kw</em><big>)</big><a class="reference internal" href="_modules/jsonrpc/server.html#ServerEvents.callmethod"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#jsonrpc.server.ServerEvents.callmethod" title="Permalink to this definition">¶</a></dt>
+<dd><p>Override to implement the methods the server will make available</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="jsonrpc.server.ServerEvents.logerror">
+<tt class="descname">logerror</tt><big>(</big><em>result</em>, <em>request</em><big>)</big><a class="reference internal" href="_modules/jsonrpc/server.html#ServerEvents.logerror"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#jsonrpc.server.ServerEvents.logerror" title="Permalink to this definition">¶</a></dt>
+<dd><p>Override to implement custom error handling</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="jsonrpc.server.ServerEvents.processrequest">
+<tt class="descname">processrequest</tt><big>(</big><em>result</em>, <em>args</em><big>)</big><a class="reference internal" href="_modules/jsonrpc/server.html#ServerEvents.processrequest"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#jsonrpc.server.ServerEvents.processrequest" title="Permalink to this definition">¶</a></dt>
+<dd><p>Override to implement custom handling of the method result and request</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="jsonrpc.server.ServerEvents.server">
+<tt class="descname">server</tt><a class="headerlink" href="#jsonrpc.server.ServerEvents.server" title="Permalink to this definition">¶</a></dt>
+<dd><p>A link to the JSON-RPC server instance</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">Welcome to JSONRPC&#8217;s documentation!</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="proxy.html"
+                        title="next chapter">JSON-RPC Proxy</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/server.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="proxy.html" title="JSON-RPC Proxy"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Welcome to JSONRPC’s documentation!"
+             >previous</a> |</li>
+        <li><a href="index.html">JSONRPC v1.0 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2011, Edward Langley.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.7.
+    </div>
+  </body>
+</html>

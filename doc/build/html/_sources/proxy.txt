@@ -1,0 +1,5 @@
+JSON-RPC Proxy
+==============
+
+.. automodule:: jsonrpc.proxy
+   :members:

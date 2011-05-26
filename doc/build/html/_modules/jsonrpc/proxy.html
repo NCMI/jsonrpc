@@ -1,0 +1,268 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>jsonrpc.proxy &mdash; JSONRPC v1.0 documentation</title>
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="JSONRPC v1.0 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">JSONRPC v1.0 documentation</a> &raquo;</li>
+          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for jsonrpc.proxy</h1><div class="highlight"><pre>
+<span class="c"># $Id: proxy.py,v 1.20 2011/05/26 20:19:17 edwlan Exp $</span>
+<span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">urllib</span>
+<span class="kn">import</span> <span class="nn">urlparse</span>
+<span class="kn">import</span> <span class="nn">itertools</span>
+<span class="kn">import</span> <span class="nn">traceback</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">UserDict</span><span class="o">,</span> <span class="nn">collections</span>
+<span class="n">collections</span><span class="o">.</span><span class="n">Mapping</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">UserDict</span><span class="o">.</span><span class="n">DictMixin</span><span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">hashlib</span> <span class="kn">import</span> <span class="n">sha1</span>
+<span class="kn">import</span> <span class="nn">jsonrpc.jsonutil</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;JSONRPCProxy&#39;</span><span class="p">,</span> <span class="s">&#39;ProxyEvents&#39;</span><span class="p">]</span>
+
+<span class="k">class</span> <span class="nc">NewStyleBaseException</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_get_message</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_message</span>
+    <span class="k">def</span> <span class="nf">_set_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_message</span> <span class="o">=</span> <span class="n">message</span>
+
+    <span class="n">message</span> <span class="o">=</span> <span class="nb">property</span><span class="p">(</span><span class="n">_get_message</span><span class="p">,</span> <span class="n">_set_message</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">JSONRPCException</span><span class="p">(</span><span class="n">NewStyleBaseException</span><span class="p">):</span>
+	<span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rpcError</span><span class="p">):</span>
+		<span class="ne">Exception</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rpcError</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;message&#39;</span><span class="p">))</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">rpcError</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;data&#39;</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="n">rpcError</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;message&#39;</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">code</span> <span class="o">=</span> <span class="n">rpcError</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;code&#39;</span><span class="p">)</span>
+
+<span class="k">class</span> <span class="nc">IDGen</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+	<span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">_hasher</span> <span class="o">=</span> <span class="n">sha1</span><span class="p">()</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">_id</span> <span class="o">=</span> <span class="mi">0</span>
+	<span class="k">def</span> <span class="nf">__get__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span><span class="p">,</span> <span class="o">**</span><span class="n">__</span><span class="p">):</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">_id</span> <span class="o">+=</span> <span class="mi">1</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">_hasher</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_id</span><span class="p">))</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">_hasher</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">ctime</span><span class="p">())</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">_hasher</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">))</span>
+		<span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hasher</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
+
+
+
+<div class="viewcode-block" id="ProxyEvents"><a class="viewcode-back" href="../../proxy.html#jsonrpc.proxy.ProxyEvents">[docs]</a><span class="k">class</span> <span class="nc">ProxyEvents</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+	<span class="sd">&#39;&#39;&#39;An event handler for JSONRPCProxy&#39;&#39;&#39;</span>
+
+	<span class="c">#: an instance of a class which defines a __get__ method, used to generate a request id</span>
+	<span class="n">IDGen</span> <span class="o">=</span> <span class="n">IDGen</span><span class="p">()</span>
+
+
+	<span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">proxy</span><span class="p">):</span>
+		<span class="sd">&#39;&#39;&#39;Allow a subclass to do its own initialization, gets any arguments leftover from __init__&#39;&#39;&#39;</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">proxy</span> <span class="o">=</span> <span class="n">proxy</span>
+
+<div class="viewcode-block" id="ProxyEvents.get_postdata"><a class="viewcode-back" href="../../proxy.html#jsonrpc.proxy.ProxyEvents.get_postdata">[docs]</a>	<span class="k">def</span> <span class="nf">get_postdata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">):</span>
+		<span class="sd">&#39;&#39;&#39;allow a subclass to modify the method&#39;s arguments</span>
+
+<span class="sd">		e.g. if an authentication token is necessary, the subclass can automatically insert it into every call&#39;&#39;&#39;</span>
+		<span class="k">return</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span>
+</div>
+<div class="viewcode-block" id="ProxyEvents.proc_response"><a class="viewcode-back" href="../../proxy.html#jsonrpc.proxy.ProxyEvents.proc_response">[docs]</a>	<span class="k">def</span> <span class="nf">proc_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+		<span class="sd">&#39;&#39;&#39;allow a subclass to access the response data before it is returned to the user&#39;&#39;&#39;</span>
+		<span class="k">return</span> <span class="n">data</span>
+
+
+
+</div></div>
+<span class="n">inst</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span><span class="n">x</span><span class="p">()</span>
+<div class="viewcode-block" id="JSONRPCProxy"><a class="viewcode-back" href="../../proxy.html#jsonrpc.proxy.JSONRPCProxy">[docs]</a><span class="k">class</span> <span class="nc">JSONRPCProxy</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+	<span class="sd">&#39;&#39;&#39;A class implementing a JSON-RPC Proxy.</span>
+
+<span class="sd">	:param str host: The HTTP server hosting the JSON-RPC server</span>
+<span class="sd">	:param str path: The path where the JSON-RPC server can be found</span>
+
+<span class="sd">	There are two ways of instantiating this class:</span>
+<span class="sd">	- JSONRPCProxy.from_url(url) -- give the absolute url to the JSON-RPC server</span>
+<span class="sd">	- JSONRPC(host, path) -- break up the url into smaller parts</span>
+
+<span class="sd">	&#39;&#39;&#39;</span>
+
+	<span class="c">#: Override this attribute to customize proxy behavior</span>
+	<span class="n">_eventhandler</span> <span class="o">=</span> <span class="n">ProxyEvents</span>
+	<span class="k">def</span> <span class="nf">customize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">eventhandler</span><span class="p">):</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">_eventhandler</span> <span class="o">=</span> <span class="n">eventhandler</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+	<span class="k">def</span> <span class="nf">_transformURL</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">serviceURL</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+		<span class="k">if</span> <span class="n">serviceURL</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s">&#39;/&#39;</span><span class="p">:</span>
+			<span class="n">serviceURL</span> <span class="o">=</span> <span class="n">serviceURL</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+		<span class="k">if</span> <span class="n">path</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="s">&#39;/&#39;</span><span class="p">:</span>
+			<span class="n">path</span> <span class="o">=</span> <span class="s">&#39;/</span><span class="si">%s</span><span class="s">&#39;</span><span class="o">%</span><span class="n">path</span>
+		<span class="k">if</span> <span class="n">path</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="s">&#39;/&#39;</span> <span class="ow">and</span> <span class="s">&#39;?&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">path</span><span class="p">:</span>
+			<span class="n">path</span> <span class="o">=</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">/&#39;</span><span class="o">%</span><span class="n">path</span>
+		<span class="k">return</span> <span class="n">serviceURL</span><span class="p">,</span> <span class="n">path</span>
+
+
+	<span class="k">def</span> <span class="nf">_get_postdata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">):</span>
+		<span class="n">args</span><span class="p">,</span><span class="n">kwargs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eventhandler</span><span class="o">.</span><span class="n">get_postdata</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+
+		<span class="k">if</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">has_key</span><span class="p">(</span><span class="s">&#39;__args&#39;</span><span class="p">):</span>
+			<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="s">&#39;invalid argument name: __args&#39;</span>
+		<span class="n">kwargs</span><span class="p">[</span><span class="s">&#39;__args&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span> <span class="ow">or</span> <span class="p">()</span>
+		<span class="n">postdata</span> <span class="o">=</span> <span class="n">jsonrpc</span><span class="o">.</span><span class="n">jsonutil</span><span class="o">.</span><span class="n">encode</span><span class="p">({</span>
+			<span class="s">&quot;method&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_serviceName</span><span class="p">,</span>
+			<span class="s">&#39;params&#39;</span><span class="p">:</span> <span class="n">kwargs</span><span class="p">,</span>
+			<span class="s">&#39;id&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eventhandler</span><span class="o">.</span><span class="n">IDGen</span><span class="p">,</span>
+			<span class="s">&#39;jsonrpc&#39;</span><span class="p">:</span> <span class="s">&#39;2.0&#39;</span>
+		<span class="p">})</span>
+		<span class="k">return</span> <span class="n">postdata</span>
+
+	<span class="c">## Public interface</span>
+	<span class="nd">@classmethod</span>
+<div class="viewcode-block" id="JSONRPCProxy.from_url"><a class="viewcode-back" href="../../proxy.html#jsonrpc.proxy.JSONRPCProxy.from_url">[docs]</a>	<span class="k">def</span> <span class="nf">from_url</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">ctxid</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">serviceName</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+		<span class="sd">&#39;&#39;&#39;Create a JSONRPCProxy from a URL&#39;&#39;&#39;</span>
+		<span class="n">urlsp</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlsplit</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+		<span class="n">url</span> <span class="o">=</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">://</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">urlsp</span><span class="o">.</span><span class="n">scheme</span><span class="p">,</span> <span class="n">urlsp</span><span class="o">.</span><span class="n">netloc</span><span class="p">)</span>
+		<span class="n">path</span> <span class="o">=</span> <span class="n">urlsp</span><span class="o">.</span><span class="n">path</span>
+		<span class="k">if</span> <span class="n">urlsp</span><span class="o">.</span><span class="n">query</span><span class="p">:</span> <span class="n">path</span> <span class="o">=</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">?</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">urlsp</span><span class="o">.</span><span class="n">query</span><span class="p">)</span>
+		<span class="k">if</span> <span class="n">urlsp</span><span class="o">.</span><span class="n">fragment</span><span class="p">:</span> <span class="n">path</span> <span class="o">=</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">#</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">urlsp</span><span class="o">.</span><span class="n">fragment</span><span class="p">)</span>
+		<span class="k">return</span> <span class="n">cls</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">serviceName</span><span class="p">,</span> <span class="n">ctxid</span><span class="p">)</span>
+
+</div>
+	<span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">host</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="s">&#39;/jsonrpc&#39;</span><span class="p">,</span> <span class="n">serviceName</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">serviceURL</span> <span class="o">=</span> <span class="n">host</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">_serviceName</span> <span class="o">=</span> <span class="n">serviceName</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">_path</span> <span class="o">=</span> <span class="n">path</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">serviceURL</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transformURL</span><span class="p">(</span><span class="n">host</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">customize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_eventhandler</span><span class="p">)</span>
+
+
+
+	<span class="k">def</span> <span class="nf">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+		<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_serviceName</span> <span class="o">!=</span> <span class="bp">None</span><span class="p">:</span>
+			<span class="n">name</span> <span class="o">=</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s">.</span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_serviceName</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+		<span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__class__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">serviceURL</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">,</span> <span class="n">serviceName</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+
+
+
+
+	<span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+
+		<span class="n">url</span> <span class="o">=</span> <span class="s">&#39;</span><span class="si">%(host)s%(path)s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="nb">dict</span><span class="p">(</span><span class="n">host</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">serviceURL</span><span class="p">,</span> <span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
+		<span class="n">postdata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_postdata</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+		<span class="n">respdata</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">urlopen</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">postdata</span><span class="p">)</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+		<span class="n">resp</span> <span class="o">=</span> <span class="n">jsonrpc</span><span class="o">.</span><span class="n">jsonutil</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">respdata</span><span class="p">)</span>
+
+		<span class="k">if</span> <span class="n">resp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;error&#39;</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">None</span><span class="p">:</span>
+			<span class="k">raise</span> <span class="n">JSONRPCException</span><span class="p">(</span><span class="n">resp</span><span class="p">[</span><span class="s">&#39;error&#39;</span><span class="p">])</span>
+		<span class="k">else</span><span class="p">:</span>
+			<span class="n">resp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eventhandler</span><span class="o">.</span><span class="n">proc_response</span><span class="p">(</span><span class="n">resp</span><span class="p">)</span>
+			<span class="n">result</span> <span class="o">=</span> <span class="n">resp</span><span class="p">[</span><span class="s">&#39;result&#39;</span><span class="p">]</span>
+			<span class="k">return</span> <span class="n">result</span>
+
+
+<div class="viewcode-block" id="JSONRPCProxy.call"><a class="viewcode-back" href="../../proxy.html#jsonrpc.proxy.JSONRPCProxy.call">[docs]</a>	<span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+		<span class="sd">&#39;&#39;&#39;call a JSON-RPC method</span>
+
+<span class="sd">		It&#39;s better to use instance.&lt;methodname&gt;(\\*args, \\*\\*kwargs),</span>
+<span class="sd">		but this version might be useful occasionally</span>
+<span class="sd">		&#39;&#39;&#39;</span>
+		<span class="n">p</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__class__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">serviceURL</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">,</span> <span class="n">serviceName</span><span class="o">=</span><span class="n">method</span><span class="p">)</span>
+		<span class="k">return</span> <span class="n">p</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="JSONRPCProxy.batch_call"><a class="viewcode-back" href="../../proxy.html#jsonrpc.proxy.JSONRPCProxy.batch_call">[docs]</a>	<span class="k">def</span> <span class="nf">batch_call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">names</span><span class="p">,</span> <span class="o">*</span><span class="n">params</span><span class="p">):</span>
+		<span class="sd">&#39;&#39;&#39;call several methods at once, return a list of (result, error) pairs</span>
+
+<span class="sd">		:param names: a list of method names</span>
+<span class="sd">		:param \\*params: a list of (arg,kwarg) pairs corresponding to each method name</span>
+<span class="sd">		&#39;&#39;&#39;</span>
+		<span class="n">methods</span> <span class="o">=</span> <span class="p">(</span> <span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span><span class="n">param</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span><span class="n">param</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">izip</span><span class="p">(</span><span class="n">names</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span> <span class="p">)</span>
+		<span class="n">data</span> <span class="o">=</span> <span class="p">(</span><span class="n">method</span><span class="o">.</span><span class="n">_get_postdata</span><span class="p">(</span><span class="o">*</span><span class="n">params</span><span class="p">)</span> <span class="k">for</span> <span class="n">method</span><span class="p">,</span> <span class="n">params</span> <span class="ow">in</span> <span class="n">methods</span><span class="p">)</span>
+		<span class="n">postdata</span> <span class="o">=</span> <span class="s">&#39;[</span><span class="si">%s</span><span class="s">]&#39;</span> <span class="o">%</span> <span class="s">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+		<span class="n">respdata</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">urlopen</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">serviceURL</span><span class="p">,</span> <span class="n">postdata</span><span class="p">)</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+		<span class="n">resp</span> <span class="o">=</span> <span class="n">jsonrpc</span><span class="o">.</span><span class="n">jsonutil</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">respdata</span><span class="p">)</span>
+		<span class="k">return</span> <span class="p">[(</span><span class="n">res</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;result&#39;</span><span class="p">),</span> <span class="n">res</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;error&#39;</span><span class="p">))</span> <span class="k">for</span> <span class="n">res</span> <span class="ow">in</span> <span class="n">resp</span><span class="p">]</span></div></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">JSONRPC v1.0 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2011, Edward Langley.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.7.
+    </div>
+  </body>
+</html>
