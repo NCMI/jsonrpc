@@ -7,9 +7,6 @@ You can get started with:
 
 - Python 2.6: `python -m jsonrpc.__main__ <host name>`
 
-After the python interpreter starts up, you can do things like
-(if the JSON-RPC Server supports the methods called):
-
     >>> server.add(1, 2)
     3
     >>> server.subtract(3,2)
