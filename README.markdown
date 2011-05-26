@@ -5,7 +5,7 @@ You can get started with:
 
 - Python 2.7:
    
-    `$ python -m jsonrpc <host name>`
+    $ python -m jsonrpc <host name>
 
 - Python 2.6
 
