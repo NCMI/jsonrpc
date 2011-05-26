@@ -7,10 +7,10 @@ You can get started with:
 
 - Python 2.6: `python -m jsonrpc.__main__ <host name>`
 
-    >>> server.add(1, 2)
-    3
-    >>> server.subtract(3,2)
-    1
+     >>> server.add(1, 2)
+     3
+     >>> server.subtract(3,2)
+     1
 
 
 Made for:
