@@ -1,4 +1,4 @@
-A JSON-RPC 2.0 implementation for Python (Python 3 not supported)
+A JSON-RPC 2.0 implementation for Python (Python 3 not supported yet)
 
 
 You can get started with:
