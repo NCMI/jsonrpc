@@ -196,14 +196,14 @@ class JSONRPCProxy(object):
 		return p(*args, **kwargs)
 
 
-	def batch_call(self, names, *params):
+	def batch_call(self, methods):
 		'''call several methods at once, return a list of (result, error) pairs
 
-		:param names: a list of method names
-		:param \\*params: a list of (arg,kwarg) pairs corresponding to each method name
+		:param names: a dictionary { method: (args, kwargs) }
+		:returns: a list of pairs (result, error) where only one is not None
 		'''
-		methods = ( (getattr(self, name),param) for name,param in itertools.izip(names, params) )
-		data = (method._get_postdata(*params) for method, params in methods)
+		if hasattr(methods, 'items'): methods = methods.items()
+		data = [ getattr(self, k)._get_postdata(*v) for k, v in methods ]
 		postdata = '[%s]' % ','.join(data)
 		respdata = urllib.urlopen(self.serviceURL, postdata).read()
 		resp = jsonrpc.jsonutil.decode(respdata)
