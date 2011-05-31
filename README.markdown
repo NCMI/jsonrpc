@@ -30,19 +30,19 @@ A JSON-RPC 2.0 implementation for Python (Python 3 not supported yet)
     jsonrpc.proxy.JSONRPCException: unsupported operand type(s) for +: 'int' and 'unicode'
 
 
-     >>> server.batch_call( dict(add=( (1,2), {} ), subtract=( (3,2), {} )) )
-     [(3, None), (1, None)] # the pattern is (result, error)
+    >>> server.batch_call( dict(add=( (1,2), {} ), subtract=( (3,2), {} )) )
+    [(3, None), (1, None)] # the pattern is (result, error)
 
-     # batch calls can also be done with an iterable, if you want
-     # to have more than one call to the same method
-     >>> server.batch_call( [('add', ((1, 2), {})), ('subtract', ((3, 2), {}))] )
-     [(3, None), (1, None)]
+    # batch calls can also be done with an iterable, if you want
+    # to have more than one call to the same method
+    >>> server.batch_call( [('add', ((1, 2), {})), ('subtract', ((3, 2), {}))] )
+    [(3, None), (1, None)]
 
-     # Exceptions in batch calls
-     >>> server.batch_call( dict(add=( (1,2), {} ), subtract=( (3,'2'), {} )) )
-     [(3, None), (None, {u'message': u"unsupported operand type(s) for -: 'int' 
-     and 'unicode'", u'code': 0, u'data': [u"unsupported operand type(s) for -: 
-     'int' and 'unicode'"]})]
+    # Exceptions in batch calls
+    >>> server.batch_call( dict(add=( (1,2), {} ), subtract=( (3,'2'), {} )) )
+    [(3, None), (None, {u'message': u"unsupported operand type(s) for -: 'int' 
+      and 'unicode'", u'code': 0, u'data': [u"unsupported operand type(s) for -: 
+      'int' and 'unicode'"]})]
 
 
 
