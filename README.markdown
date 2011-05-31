@@ -9,6 +9,7 @@ A JSON-RPC 2.0 implementation for Python (Python 3 not supported yet)
     Listening on port 8007...
 
 - Start the Client:
+  
   Python 2.7: `python -m jsonrpc <host name>`
   
   Python 2.6: `python -m jsonrpc.__main__ <host name>`
