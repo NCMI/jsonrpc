@@ -3,12 +3,12 @@ A JSON-RPC 2.0 implementation for Python (Python 3 not supported yet)
 
 ## Getting Started
 
-- Start the Server:
+### Start the Server:
 
     % python -m jsonrpc.example_server
     Listening on port 8007...
 
-- Start the Client:
+### Start the Client:
   
   Python 2.7: `python -m jsonrpc <host name>`
   
