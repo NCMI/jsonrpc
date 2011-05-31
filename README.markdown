@@ -9,23 +9,24 @@ A JSON-RPC 2.0 implementation for Python (Python 3 not supported yet)
     Listening on port 8007...
 
 - Start the Client:
-  - Python 2.7: `python -m jsonrpc <host name>`
-  - Python 2.6: `python -m jsonrpc.__main__ <host name>`
+  Python 2.7: `python -m jsonrpc <host name>`
+  
+  Python 2.6: `python -m jsonrpc.__main__ <host name>`
 
 
-     >>> server.add(1, 2)
-     3
+    >>> server.add(1, 2)
+    3
 
-     >>> server.subtract(3,2)
-     1
+    >>> server.subtract(3,2)
+    1
 
-     # Exceptions
-     >>> server.add(1, '2')
-     Traceback (most recent call last):
-       File "<stdin>", line 1, in <module>
-       File "jsonrpc/proxy.py", line 182, in __call__
-         raise JSONRPCException(resp['error'])
-     jsonrpc.proxy.JSONRPCException: unsupported operand type(s) for +: 'int' and 'unicode'
+    # Exceptions
+    >>> server.add(1, '2')
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+      File "jsonrpc/proxy.py", line 182, in __call__
+        raise JSONRPCException(resp['error'])
+    jsonrpc.proxy.JSONRPCException: unsupported operand type(s) for +: 'int' and 'unicode'
 
 
      >>> server.batch_call( dict(add=( (1,2), {} ), subtract=( (3,2), {} )) )
