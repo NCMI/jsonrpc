@@ -1,24 +1,24 @@
 # $Id: server.py,v 1.8 2011/05/26 19:34:19 edwlan Exp $
 
-#  
+#
 #  Copyright (c) 2011 Edward Langley
 #  All rights reserved.
-#  
+#
 #  Redistribution and use in source and binary forms, with or without
 #  modification, are permitted provided that the following conditions
 #  are met:
-#  
+#
 #  Redistributions of source code must retain the above copyright notice,
 #  this list of conditions and the following disclaimer.
-#  
+#
 #  Redistributions in binary form must reproduce the above copyright
 #  notice, this list of conditions and the following disclaimer in the
 #  documentation and/or other materials provided with the distribution.
-#  
+#
 #  Neither the name of the project's author nor the names of its
 #  contributors may be used to endorse or promote products derived from
 #  this software without specific prior written permission.
-#  
+#
 #  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 #  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 #  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -30,10 +30,12 @@
 #  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#  
+#
 #
 import cgi
+import copy
 import time
+import itertools
 import jsonrpc.jsonutil
 
 # Twisted imports
@@ -60,7 +62,7 @@ class ServerEvents(object):
 		'''Override to implement custom handling of the method result and request'''
 		return result
 
-	def logerror(self, result, request):
+	def log(self, result, request):
 		'''Override to implement custom error handling'''
 		pass
 
@@ -107,43 +109,34 @@ class JSON_RPC(Resource):
 		request.write(result)
 		request.finish()
 
+	def _ebRender(self, result, request, id, finish=True):
+		self.eventhandler.log(result, request)
 
-	def _ebRender(self, result, request, content, *args, **kwargs):
-		result_template = dict(
-			jsonrpc='2.0',
-			error= dict(
-				code=0,
-				message='Stub Message',
-				data = 'Stub Data'
-		))
+		err = None
+		if not isinstance(result, BaseException):
+			try: result.raiseException()
+			except BaseException, e:
+				err = e
+		else: err = result
+		err = self.render_error(err, id)
 
-		try:
-			request.setHeader("X-Error", result.getErrorMessage())
-			result_template['error'].update(
-					code=0,
-					message=' '.join(str(x) for x in result.value),
-					data=content
-			)
-			if isinstance(content, list):
-				result_template['id'] = content[0].get('id', '<NULL>')
-				result_template = [result]
-			else: result_template['id'] = content.get('id')
-		except Exception, e:
-			result_template['error'].update(
-				code = 0,
-				message = 'Error in errorpage: %s' % e,
-				data = ''
-			)
-
-		result = result_template
-		result['error']['message'] = cgi.escape(result['error']['message'])
-		result = jsonrpc.jsonutil.encode(result)
-		result = result.encode('utf-8')
+		request.setHeader("content-type", 'application/json')
+		request.setResponseCode(200)
+		result = jsonrpc.jsonutil.encode(err).encode('utf-8')
 		request.setHeader("content-length", len(result))
-		request.setResponseCode(500)
-		self.eventhandler.logerror(result, request)
 		request.write(result)
-		request.finish()
+		if finish: request.finish()
+
+
+	def get_result(method_result, content, template):
+		template['error'].update(
+				code=0,
+				message=cgi.escape(' '.join(str(x) for x in method_result.value)),
+				data=content
+		)
+		template['id'] = content.get(id)
+		return template
+
 
 
 	def render(self, request):
@@ -151,11 +144,27 @@ class JSON_RPC(Resource):
 		host = request.getClientIP()
 
 		request.content.seek(0, 0)
-		content = jsonrpc.jsonutil.decode(request.content.read())
-		d = threads.deferToThread(self._action, request, content, ctxid=ctxid, host=host)
-		d.addCallback(self._cbRender, request)
-		d.addErrback(self._ebRender, request, content)
+		try:
+			content = jsonrpc.jsonutil.decode(request.content.read())
+			d = threads.deferToThread(self._action, request, content, ctxid=ctxid, host=host)
+			d.addCallback(self._cbRender, request)
+			d.addErrback(self._ebRender, request, content.get('id') if hasattr(content, 'get') else None)
+		except BaseException, e:
+			self._ebRender(e, request, None)
+
 		return server.NOT_DONE_YET
+
+	def render_error(self, e, id):
+		err = dict(
+			jsonrpc='2.0',
+			id = id,
+			error= dict(
+				code=0,
+				message=str(e),
+				data = e.args
+		))
+		return err
+
 
 
 	def _action(self, request, contents, **kw):
@@ -165,19 +174,23 @@ class JSON_RPC(Resource):
 			contents = [contents]
 
 		for content in contents:
-			res = dict(
-				jsonrpc = '2.0',
-				id = content.get('id'),
-				result = self.eventhandler.callmethod(request, *self._parse_data(content), **kw)
-			)
+			try:
+				res = dict(
+					jsonrpc = '2.0',
+					id = content.get('id'),
+					result = self.eventhandler.callmethod(request, *self._parse_data(content), **kw)
+				)
 
-			res = self.eventhandler.processrequest(res, request.args)
+				res = self.eventhandler.processrequest(res, request.args)
 
-			result.append(res)
+				result.append(res)
+			except Exception, e:
+				err = self.render_error(e, content.get('id'))
+				result.append(err)
 
+
+		self.eventhandler.log(result, request)
 
 		return ( result if ol else result[0] )
 
 
-
-__version__ = "$Revision: 1.8 $".split(":")[1][:-1].strip()
