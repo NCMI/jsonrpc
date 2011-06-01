@@ -32,11 +32,14 @@
 #
 from twisted.internet import reactor, ssl
 from twisted.web import server
+import traceback
 
-from .server import ServerEvents, JSON_RPC
+from jsonrpc.server import ServerEvents, JSON_RPC
 
 class JSONRPCTest(ServerEvents):
-	def log(self, *a): print a
+	def log(self, *a):
+		print a
+
 	def findmethod(self, method):
 		if method in set(['add', 'subtract']):
 			return getattr(self, method)

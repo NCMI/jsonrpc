@@ -1,4 +1,4 @@
-from . import proxy
+from jsonrpc import proxy
 import optparse
 
 def main(host, path=None):

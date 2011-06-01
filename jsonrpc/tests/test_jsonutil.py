@@ -40,7 +40,7 @@ class testobj(object):
 	value = 'This is the json value'
 	def json_equivalent(self): return self.value
 
-class TestSequenceFunctions(unittest.TestCase):
+class TestJSONUTIL(unittest.TestCase):
 
 	def setUp(self):
 		# simple tests

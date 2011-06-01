@@ -32,12 +32,8 @@
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 #
-import cgi
-import copy
-import time
-import itertools
 import jsonrpc.jsonutil
-import json
+from jsonrpc.utilities import public
 
 # Twisted imports
 from twisted.web import server
@@ -48,19 +44,20 @@ from twisted.web.resource import Resource
 import UserDict, collections
 collections.Mapping.register(UserDict.DictMixin)
 
+@public
 class ServerEvents(object):
 	'''Subclass this and pass to :py:meth:`jsonrpc.customize` to customize the jsonrpc server'''
 
-	def __init__(self, jsonrpc):
+	def __init__(self, server):
 		#: A link to the JSON-RPC server instance
-		self.server = jsonrpc
+		self.server = server
 
-	def callmethod(self, request, method, kwargs, args, **kw):
+	def callmethod(self, txrequest, rpcrequest):
 		'''Finds the method and calls it with the specified args'''
-		method = self.findmethod(method)
+		method = self.findmethod(rpcrequest.method)
 		if method is None: raise MethodNotFound
 
-		return method(*args, **kwargs)
+		return method(*rpcrequest.args, **rpcrequest.kwargs)
 
 	def findmethod(self, method):
 		'''Override to allow server to define methods'''
@@ -79,29 +76,90 @@ class ServerEvents(object):
 		return content
 
 
+@public
 class ServerError(Exception):
+	'''Base Exception for JSON-RPC Errors, if this or a subclass of this is raised by a JSON-RPC method,
+	The server will convert it into an appropriate error object
+	'''
+
+	#: Error code
 	code = 0
+	#: Error message
 	msg = ""
-	id = None
 
 	def json_equivalent(self):
-		return dict(jsonrpc="2.0", error=dict(code=self.code, message=self.msg), id=self.id)
+		'''return a dictionary which matches an JSON-RPC Response'''
+		return dict(code=self.code, message=self.msg)
+
 	def __str__(self):
 		return jsonrpc.jsonutil.encode(self)
 
+@public
 class InvalidRequest(ServerError):
+	'''Raise this when the Request object does not match the schema'''
 	code = -32600
 	msg = "Invalid Request."
 
+@public
 class MethodNotFound(ServerError):
+	'''Raise this when the desired method is not found'''
 	code = -32601
 	msg = "Procedure not found."
 
+@public
 class ParseError(ServerError):
+	'''Raise this when the request contains invalid JSON'''
 	code = -32700
 	msg = "Parse error."
 
+class Request(object):
+	def __init__(self, content):
+		self.version = content.get('jsonrpc')
+		self.id = content.get('id')
+
+		self.method = content.get('method')
+
+		kwargs = content.get('params', {})
+		args = ()
+		if not isinstance(kwargs, dict):
+			args = tuple(kwargs)
+			kwargs = {}
+		else:
+			args = kwargs.pop('__args', args)
+
+		self.args = args
+		self.kwargs = dict( (str(k), v) for k,v in kwargs.items() )
+
+	def check(self):
+		if self.version != '2.0': raise InvalidRequest
+		if not isinstance(self.method, (str, unicode)): raise InvalidRequest
+
+	@classmethod
+	def from_list(cls, content):
+		result = []
+		for req in content:
+			result.append(cls(req))
+		return result
+
+
+class Response(object):
+	def __init__(self, id=None, result=None, error=None):
+		self.version = '2.0'
+		self.id = id
+		self.result = result
+		self.error = error
+
+	def json_equivalent(self):
+		res = dict(jsonrpc=self.version, id=self.id)
+		if self.error is None:
+			res['result'] = self.result
+		else:
+			res['error'] = self.error
+		return res
+
+
 ## Base class providing a JSON-RPC 2.0 implementation with 2 customizable hooks
+@public
 class JSON_RPC(Resource):
 	'''This class implements a JSON-RPC 2.0 server as a Twisted Resource'''
 	isLeaf = True
@@ -133,13 +191,57 @@ class JSON_RPC(Resource):
 
 			content = self.eventhandler.processcontent(content, request)
 
+			if isinstance(content, list):
+				content = Request.from_list(content)
+			else:
+				content = Request(content)
+
+			try:
+				if hasattr(content, 'check'):
+					content.check()
+				else:
+					for item in content: item.check()
+
+			except ServerError, e:
+				self._ebRender(e, request, content.id if hasattr(content, 'id') else None)
+
 			d = threads.deferToThread(self._action, request, content)
 			d.addCallback(self._cbRender, request)
-			d.addErrback(self._ebRender, request, content.get('id') if hasattr(content, 'get') else None)
+			d.addErrback(self._ebRender, request, content.id if hasattr(content, 'id') else None)
 		except BaseException, e:
 			self._ebRender(e, request, None)
 
 		return server.NOT_DONE_YET
+
+	def _action(self, request, contents):
+		result = []
+
+		islist = (True if isinstance(contents, list) else False)
+		if not islist: contents = [contents]
+
+		if contents == []: raise InvalidRequest
+
+		for rpcrequest in contents:
+			res = None
+
+			try:
+				res = Response(id=rpcrequest.id, result=self.eventhandler.callmethod(request, rpcrequest))
+				res = self.eventhandler.processrequest(res, request.args)
+			except Exception, e:
+				res = self.render_error(e, rpcrequest.id)
+
+			if res.id is not None:
+				result.append(res)
+
+
+		self.eventhandler.log(result, request)
+
+		if result != []:
+			if not islist: result = result[0]
+		else: result = None
+
+		return result
+
 
 
 	def _cbRender(self, result, request):
@@ -169,69 +271,15 @@ class JSON_RPC(Resource):
 		request.write(result)
 		if finish: request.finish()
 
-	def _parse_data(self, content):
-		if content.get('jsonrpc') != '2.0': raise InvalidRequest
-
-		method = content.get('method')
-		if not isinstance(method, (str, unicode)): raise InvalidRequest
-
-		kwargs = content.get('params', {})
-		args = ()
-		if not isinstance(kwargs, dict):
-			args = tuple(kwargs)
-			kwargs = {}
-		else:
-			args = kwargs.pop('__args', args)
-		kwargs = dict( (str(k), v) for k,v in kwargs.items() )
-
-		return method, kwargs, args
-
-
 
 	def render_error(self, e, id):
 		if isinstance(e, ServerError):
-			e.id = id
-			err = e.json_equivalent()
+			err = Response(id=id, error=e)
 		else:
-			err = dict(
-				jsonrpc='2.0',
-				id = id,
-				error= dict(
-					code=0,
-					message=str(e),
-					data = e.args
-			))
+			err = Response(id=id, error=dict(code=0, message=str(e), data=e.args))
 
 		return err
 
 
-
-	def _action(self, request, contents):
-		result = []
-		ol = (True if isinstance(contents, list) else False)
-		if not ol: contents = [contents]
-
-		if contents == []: raise InvalidRequest
-
-		for content in contents:
-			try:
-				res = dict(jsonrpc='2.0', id=content.get('id'), result=self.eventhandler.callmethod(request, *self._parse_data(content)))
-
-				res = self.eventhandler.processrequest(res, request.args)
-
-				if res['id'] is not None: result.append(res)
-			except Exception, e:
-				err = self.render_error(e, content.get('id'))
-				if err['id'] is not None: result.append(err)
-
-
-
-		self.eventhandler.log(result, request)
-
-		if result != []:
-			if not ol: result = result[0]
-		else: result = None
-
-		return result
 
 

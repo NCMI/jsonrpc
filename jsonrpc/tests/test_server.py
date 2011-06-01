@@ -92,11 +92,10 @@ class TestJSONRPCServer(unittest.TestCase):
 
 		@d.addCallback
 		def rendered(ignored):
-			assert True
-			assert resource.eventhandler.processcontent.called
-			assert resource.eventhandler.callmethod.called
-			assert resource.eventhandler.processrequest.called
-			assert resource.eventhandler.log.called
+			self.assertTrue(resource.eventhandler.processcontent.called)
+			self.assertTrue(resource.eventhandler.callmethod.called)
+			self.assertTrue(resource.eventhandler.processrequest.called)
+			self.assertTrue(resource.eventhandler.log.called)
 
 		return d
 
@@ -113,10 +112,10 @@ class TestJSONRPCServer(unittest.TestCase):
 
 		@d.addCallback
 		def rendered(ignored):
-			assert len(request.written) == 1
+			self.assertEqual(len(request.written), 1)
 			data = jsonrpc.jsonutil.decode(request.written[0])
 
-			assert data == {"jsonrpc": "2.0", "error": {"code": -32700, "message": "Parse error."}, "id": None}
+			self.assertEqual(data, {"jsonrpc": "2.0", "error": {"code": -32700, "message": "Parse error."}, "id": None})
 
 		return d
 
@@ -132,9 +131,9 @@ class TestJSONRPCServer(unittest.TestCase):
 
 		@d.addCallback
 		def rendered(ignored):
-			assert len(request.written) == 1
+			self.assertEqual(len(request.written), 1)
 			data = jsonrpc.jsonutil.decode(request.written[0])
-			assert data == {"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request."}, "id": self.id_}
+			self.assertEqual(data, {"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request."}, "id": self.id_})
 		return d
 
 
@@ -150,9 +149,9 @@ class TestJSONRPCServer(unittest.TestCase):
 
 		@d.addCallback
 		def rendered(ignored):
-			assert len(request.written) == 1
+			self.assertEqual(len(request.written), 1)
 			data = jsonrpc.jsonutil.decode(request.written[0])
-			assert data == {"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request."}, "id": self.id_}
+			self.assertEqual(data, {"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request."}, "id": self.id_})
 		return d
 
 	def test_missingmethod(self):
@@ -167,9 +166,9 @@ class TestJSONRPCServer(unittest.TestCase):
 
 		@d.addCallback
 		def rendered(ignored):
-			assert len(request.written) == 1
+			self.assertEqual(len(request.written), 1)
 			data = jsonrpc.jsonutil.decode(request.written[0])
-			assert data == {"jsonrpc": "2.0", "error": {"code": -32601, "message": "Procedure not found."}, "id": self.id_}
+			self.assertEqual(data, {"jsonrpc": "2.0", "error": {"code": -32601, "message": "Procedure not found."}, "id": self.id_})
 		return d
 
 
@@ -186,11 +185,11 @@ class TestJSONRPCServer(unittest.TestCase):
 
 		@d.addCallback
 		def rendered(ignored):
-			assert len(request.written) == 1
+			self.assertEqual(len(request.written), 1)
 			data = jsonrpc.jsonutil.decode(request.written[0])
 
-			assert data['id'] == self.id_
-			assert data['result'] == self.param
+			self.assertEqual(data['id'], self.id_)
+			self.assertEqual(data['result'], self.param)
 		return d
 
 	def test_notify(self):
@@ -205,7 +204,7 @@ class TestJSONRPCServer(unittest.TestCase):
 
 		@d.addCallback
 		def rendered(ignored):
-			assert len(request.written) == 0
+			self.assertEqual(len(request.written), 0)
 
 		return d
 
@@ -222,11 +221,11 @@ class TestJSONRPCServer(unittest.TestCase):
 
 		@d.addCallback
 		def rendered(ignored):
-			assert len(request.written) == 1
+			self.assertEqual(len(request.written), 1)
 			data = jsonrpc.jsonutil.decode(request.written[0])
 
-			assert data['id'] == self.id_
-			assert data['result'] == self.param
+			self.assertEqual(data['id'], self.id_)
+			self.assertEqual(data['result'], self.param)
 
 		return d
 
@@ -243,11 +242,11 @@ class TestJSONRPCServer(unittest.TestCase):
 
 		@d.addCallback
 		def rendered(ignored, *a):
-			assert len(request.written) == 1
+			self.assertEqual(len(request.written), 1)
 			data = jsonrpc.jsonutil.decode(request.written[0])
 
-			assert data['id'] == self.id_
-			assert data.get('error', False)
+			self.assertEqual(data['id'], self.id_)
+			self.assertTrue(data.get('error', False))
 		return rendered
 
 	def test_batchcall(self):
@@ -265,13 +264,13 @@ class TestJSONRPCServer(unittest.TestCase):
 
 		@d.addCallback
 		def rendered(ignored, *a):
-			assert len(request.written) == 1
+			self.assertEqual(len(request.written), 1)
 			data = jsonrpc.jsonutil.decode(request.written[0])
-			assert len(data) == 2
-			assert set(x['id'] for x in data) == set("12")
-			assert set(x['result'] for x in data) == set([3,5])
+			self.assertEqual(len(data), 2)
+			self.assertEqual(set(x['id'] for x in data), set("12"))
+			self.assertEqual(set(x['result'] for x in data), set([3,5]))
 
-			assert not any(x.get('error', False) for x in data)
+			self.assertFalse(any(x.get('error', False) for x in data))
 		return rendered
 
 	def test_batchcall_1err(self):
@@ -289,13 +288,13 @@ class TestJSONRPCServer(unittest.TestCase):
 
 		@d.addCallback
 		def rendered(ignored, *a):
-			assert len(request.written) == 1
+			self.assertEqual(len(request.written), 1)
 			data = jsonrpc.jsonutil.decode(request.written[0])
-			assert len(data) == 2
-			assert set(x['id'] for x in data) == set("12")
-			assert set(x.get('result', False) for x in data) == set([3,False])
+			self.assertEqual(len(data), 2)
+			self.assertEqual(set(x['id'] for x in data), set("12"))
+			self.assertEqual(set(x.get('result', False) for x in data), set([3,False]))
 
-			assert len(filter(None, [x.get('error') for x in data])) == 1
+			self.assertEqual(len(filter(None, [x.get('error') for x in data])), 1)
 		return rendered
 
 
@@ -313,7 +312,7 @@ class TestJSONRPCServer(unittest.TestCase):
 		@d.addCallback
 		def rendered(ignored, *a):
 			data = jsonrpc.jsonutil.decode(request.written[0])
-			assert data == {"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request."}, "id": None}
+			self.assertEqual(data, {"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request."}, "id": None})
 		return rendered
 
 
