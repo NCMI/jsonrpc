@@ -130,7 +130,9 @@ class JSON_RPC(Resource):
 			try:
 				content = jsonrpc.jsonutil.decode(request.content.read())
 			except ValueError: raise ParseError
+
 			content = self.eventhandler.processcontent(content, request)
+
 			d = threads.deferToThread(self._action, request, content)
 			d.addCallback(self._cbRender, request)
 			d.addErrback(self._ebRender, request, content.get('id') if hasattr(content, 'get') else None)

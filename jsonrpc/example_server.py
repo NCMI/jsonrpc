@@ -37,7 +37,7 @@ from .server import ServerEvents, JSON_RPC
 
 class JSONRPCTest(ServerEvents):
 	def log(self, *a): print a
-	def findmethod(self, request, method, kwargs, args, **kw):
+	def findmethod(self, method):
 		if method in set(['add', 'subtract']):
 			return getattr(self, method)
 		else:

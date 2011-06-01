@@ -75,6 +75,32 @@ class TestJSONRPCServer(unittest.TestCase):
 		self.id_ = 'an_id'
 		self.param = "some data"
 
+	def test_eventhandler(self):
+		resource = jsonrpc.server.JSON_RPC()
+		resource.eventhandler = mock.Mock(jsonrpc.server.ServerEvents)
+		resource.eventhandler.findmethod.return_value = lambda *a, **b: 'test data'
+
+		rv = {"jsonrpc": "2.0", "params": [self.param], "method": "echo", "id": self.id_}
+		resource.eventhandler.processcontent.return_value = rv
+		resource.eventhandler.processrequest.return_value = rv
+
+		request = DummyRequest([''])
+		request.getCookie = mock.Mock()
+		request.content = StringIO.StringIO(jsonrpc.jsonutil.encode(rv))
+
+		d = _render(resource, request)
+
+		@d.addCallback
+		def rendered(ignored):
+			assert True
+			assert resource.eventhandler.processcontent.called
+			assert resource.eventhandler.callmethod.called
+			assert resource.eventhandler.processrequest.called
+			assert resource.eventhandler.log.called
+
+		return d
+
+
 	def test_invalid_data(self):
 		resource = jsonrpc.server.JSON_RPC()
 		resource.customize(SimpleEventHandler)
