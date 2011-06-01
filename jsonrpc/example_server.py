@@ -36,9 +36,12 @@ from twisted.web import server
 from .server import ServerEvents, JSON_RPC
 
 class JSONRPCTest(ServerEvents):
-	def callmethod(self, request, method, kwargs, args, **kw):
+	def log(self, *a): print a
+	def findmethod(self, request, method, kwargs, args, **kw):
 		if method in set(['add', 'subtract']):
-			return getattr(self, method)(*args, **kwargs)
+			return getattr(self, method)
+		else:
+			return None
 
 	def subtract(self, a, b):
 		return a-b
@@ -51,7 +54,9 @@ site = server.Site(root)
 
 
 # 8007 is the port you want to run under. Choose something >1024
-reactor.listenTCP(8007, site)
+PORT = 8007
+print 'Listening on port %a...d' % PORT
+reactor.listenTCP(PORT, site)
 reactor.run()
 
 
