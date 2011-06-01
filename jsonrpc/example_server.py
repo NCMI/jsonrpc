@@ -37,8 +37,12 @@ import traceback
 from jsonrpc.server import ServerEvents, JSON_RPC
 
 class JSONRPCTest(ServerEvents):
-	def log(self, *a):
-		print a
+	def log(self, responses, txrequest):
+		if isinstance(responses, list):
+			for response in responses:
+				print txrequest, response.id, response.result or response.error
+		else:
+			print txrequest, responses.id, responses.result or responses.error
 
 	def findmethod(self, method):
 		if method in set(['add', 'subtract']):

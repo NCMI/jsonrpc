@@ -67,7 +67,7 @@ class ServerEvents(object):
 		'''Override to implement custom handling of the method result and request'''
 		return result
 
-	def log(self, result, request):
+	def log(self, response, txrequest):
 		'''Override to implement custom error handling'''
 		pass
 
@@ -234,12 +234,12 @@ class JSON_RPC(Resource):
 				result.append(res)
 
 
-		self.eventhandler.log(result, request)
 
 		if result != []:
 			if not islist: result = result[0]
 		else: result = None
 
+		self.eventhandler.log(result, request)
 		return result
 
 
@@ -254,7 +254,6 @@ class JSON_RPC(Resource):
 		request.finish()
 
 	def _ebRender(self, result, request, id, finish=True):
-		self.eventhandler.log(result, request)
 
 		err = None
 		if not isinstance(result, BaseException):
@@ -263,6 +262,7 @@ class JSON_RPC(Resource):
 				err = e
 		else: err = result
 		err = self.render_error(err, id)
+		self.eventhandler.log(err, request)
 
 		request.setHeader("content-type", 'application/json')
 		request.setResponseCode(200)
