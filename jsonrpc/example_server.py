@@ -55,7 +55,7 @@ site = server.Site(root)
 
 # 8007 is the port you want to run under. Choose something >1024
 PORT = 8007
-print 'Listening on port %a...d' % PORT
+print 'Listening on port %d...' % PORT
 reactor.listenTCP(PORT, site)
 reactor.run()
 
