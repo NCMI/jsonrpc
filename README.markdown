@@ -2,6 +2,11 @@ A JSON-RPC 2.0 implementation for Python (Python 3 not supported yet)
 
 
 ## Getting Started
+### Installing the librarary:
+
+    % python setup.py install
+
+  Alternatively, one can use the following commands from the directory which contains the 'setup.py' file.
 
 ### Start the Server:
 
