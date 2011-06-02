@@ -1,9 +1,3 @@
-.. JSONRPC documentation master file, created by
-   sphinx-quickstart on Mon May 23 20:36:05 2011.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
- 
 .. Copyright (c) 2011 Edward Langley
    All rights reserved.
    
@@ -35,24 +29,35 @@
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
 
+Getting Started
+===============
+This code will create a server that logs all requests, and provides two methods to clients:
+add and subtract:
 
-Welcome to JSONRPC's documentation!
-===================================
+.. literalinclude:: ../../jsonrpc/example_server.py
+   :language: python
+   :linenos:
+   :tab-width: 2
+   :lines: 2,3,34-
 
-Contents:
+To use the server, start the client this way:
 
-.. toctree::
-   :maxdepth: 2
+.. code-block:: bash
 
-   getting_started
-   server
-   proxy
-   jsonutil
+   # Python 2.6
+   % python2.6 -i -m jsonrpc.__main__ http://localhost:8007
 
-Indices and tables
-==================
+   # Python 2.7
+   % python2.7 -i -m jsonrpc http://localhost:8007
+   
+.. code-block:: python
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-
+   >>> server.add(1,2)
+   3
+   >>> server.subtract(3,2)
+   1
+   >>> server.batch_call(dict(
+   ...   add = ((3, 2), {} ),
+   ...   subtract = ((), {'a': 3, 'b': 2})
+   ... ))
+   [(5, None), (1, None)]

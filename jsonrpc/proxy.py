@@ -80,11 +80,12 @@ class ProxyEvents(object):
 	'''An event handler for JSONRPCProxy'''
 
 	#: an instance of a class which defines a __get__ method, used to generate a request id
-	IDGen = IDGen()
+	IDGen = IDGen
 
 
 	def __init__(self, proxy):
 		'''Allow a subclass to do its own initialization, gets any arguments leftover from __init__'''
+		self.IDGen = self.IDGen()
 		self.proxy = proxy
 
 	def get_postdata(self, args, kwargs):
@@ -98,9 +99,32 @@ class ProxyEvents(object):
 		return data
 
 
+class Request(object):
+
+	def __init__(self, id, method, args=None, kwargs=None):
+		self.version = '2.0'
+		self.id = id
+		self.method = method
+		self.args = args
+		self.kwargs = kwargs
+
+	def json_equivalent(self):
+		if kwargs.has_key('__args'):
+			raise ValueError, 'invalid argument name: __args'
+
+		result = dict(
+			jsonrpc = self.version,
+			id = self.id,
+			method = self.method
+		)
+
+		if self.args and self.kwargs:
+			self.kwargs['__args'] = self.args
 
 
-inst = lambda x:x()
+
+
+
 class JSONRPCProxy(object):
 	'''A class implementing a JSON-RPC Proxy.
 
@@ -127,20 +151,6 @@ class JSONRPCProxy(object):
 			path = '%s/'%path
 		return serviceURL, path
 
-
-	def _get_postdata(self, args, kwargs):
-		args,kwargs = self._eventhandler.get_postdata(args, kwargs)
-
-		if kwargs.has_key('__args'):
-			raise ValueError, 'invalid argument name: __args'
-		kwargs['__args'] = args or ()
-		postdata = jsonrpc.jsonutil.encode({
-			"method": self._serviceName,
-			'params': kwargs,
-			'id': self._eventhandler.IDGen,
-			'jsonrpc': '2.0'
-		})
-		return postdata
 
 	## Public interface
 	@classmethod
@@ -169,6 +179,12 @@ class JSONRPCProxy(object):
 		return self.__class__(self.serviceURL, path=self._path, serviceName=name)
 
 
+	def _get_postdata(self, args=None, kwargs=None):
+		args,kwargs = self._eventhandler.get_postdata(args, kwargs)
+		id = self._eventhandler.IDGen
+		return Request(id, self._serviceNams, args, kwargs)
+		postdata = jsonrpc.jsonutil.encode({	})
+		return postdata
 
 
 	def __call__(self, *args, **kwargs):

@@ -71,6 +71,7 @@ source_suffix = '.rst'
 
 # The encoding of source files.
 #source_encoding = 'utf-8-sig'
+highlight_language = 'python'
 
 # The master toctree document.
 master_doc = 'index'

@@ -30,25 +30,34 @@
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 #
+
 from twisted.internet import reactor, ssl
 from twisted.web import server
 import traceback
 
 from jsonrpc.server import ServerEvents, JSON_RPC
 
-class JSONRPCTest(ServerEvents):
+class ExampleServer(ServerEvents):
+	# inherited hooks
 	def log(self, responses, txrequest):
 		if isinstance(responses, list):
 			for response in responses:
-				print txrequest, response.id, response.result or response.error
+				msg = self.get_msg(response)
+				print txrequest, msg
 		else:
-			print txrequest, responses.id, responses.result or responses.error
+			msg = self.get_msg(response)
+			print txrequest, msg
 
 	def findmethod(self, method):
-		if method in set(['add', 'subtract']):
+		if method in self.methods:
 			return getattr(self, method)
 		else:
 			return None
+
+	# helper methods
+	methods = set(['add', 'subtract'])
+	def _get_msg(self, response):
+		return ' '.join([response.id, response.result or response.error])
 
 	def subtract(self, a, b):
 		return a-b
@@ -65,6 +74,3 @@ PORT = 8007
 print 'Listening on port %d...' % PORT
 reactor.listenTCP(PORT, site)
 reactor.run()
-
-
-__version__ = "$Revision: 1.8 $".split(":")[1][:-1].strip()
