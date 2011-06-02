@@ -41,6 +41,7 @@ from twisted.internet import threads
 from twisted.web.resource import Resource
 
 
+import copy
 import UserDict, collections
 collections.Mapping.register(UserDict.DictMixin)
 
@@ -52,18 +53,19 @@ class ServerEvents(object):
 		#: A link to the JSON-RPC server instance
 		self.server = server
 
-	def callmethod(self, txrequest, rpcrequest):
+	def callmethod(self, txrequest, rpcrequest, **extra):
 		'''Finds the method and calls it with the specified args'''
 		method = self.findmethod(rpcrequest.method)
 		if method is None: raise MethodNotFound
+		extra.update(rpcrequest.kwargs)
 
-		return method(*rpcrequest.args, **rpcrequest.kwargs)
+		return method(*rpcrequest.args, **extra)
 
 	def findmethod(self, method):
 		'''Override to allow server to define methods'''
 		return lambda *a, **kw: 'Test Data'
 
-	def processrequest(self, result, args):
+	def processrequest(self, result, args, **kw):
 		'''Override to implement custom handling of the method result and request'''
 		return result
 
@@ -114,12 +116,12 @@ class ParseError(ServerError):
 
 class Request(object):
 	def __init__(self, content):
-		self.version = content.get('jsonrpc')
-		self.id = content.get('id')
+		self.version = content.pop('jsonrpc', None)
+		self.id = content.pop('id', None)
 
-		self.method = content.get('method')
+		self.method = content.pop('method', None)
 
-		kwargs = content.get('params', {})
+		kwargs = content.pop('params', {})
 		args = ()
 		if not isinstance(kwargs, dict):
 			args = tuple(kwargs)
@@ -129,6 +131,7 @@ class Request(object):
 
 		self.args = args
 		self.kwargs = dict( (str(k), v) for k,v in kwargs.items() )
+		self.extra = content
 
 	def check(self):
 		if self.version != '2.0': raise InvalidRequest
@@ -179,10 +182,6 @@ class JSON_RPC(Resource):
 
 
 	def render(self, request):
-		#move to emen2 event handler
-		#ctxid = request.getCookie("ctxid") or request.args.get("ctxid", [None])[0]
-		#host = request.getClientIP()
-
 		request.content.seek(0, 0)
 		try:
 			try:
@@ -213,7 +212,7 @@ class JSON_RPC(Resource):
 
 		return server.NOT_DONE_YET
 
-	def _action(self, request, contents):
+	def _action(self, request, contents, **kw):
 		result = []
 
 		islist = (True if isinstance(contents, list) else False)
@@ -225,8 +224,10 @@ class JSON_RPC(Resource):
 			res = None
 
 			try:
-				res = Response(id=rpcrequest.id, result=self.eventhandler.callmethod(request, rpcrequest))
-				res = self.eventhandler.processrequest(res, request.args)
+				add = copy.deepcopy(rpcrequest.extra)
+				add.update(kw)
+				res = Response(id=rpcrequest.id, result=self.eventhandler.callmethod(request, rpcrequest, **add))
+				res = self.eventhandler.processrequest(res, request.args, **kw)
 			except Exception, e:
 				res = self.render_error(e, rpcrequest.id)
 
