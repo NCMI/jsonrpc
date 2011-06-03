@@ -47,7 +47,7 @@ Contents:
    getting_started
    server
    proxy
-   jsonutil
+.. jsonutil
 
 Indices and tables
 ==================

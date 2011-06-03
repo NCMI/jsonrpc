@@ -1,24 +1,24 @@
 # $Id: proxy.py,v 1.20 2011/05/26 20:19:17 edwlan Exp $
 
-#  
+#
 #  Copyright (c) 2011 Edward Langley
 #  All rights reserved.
-#  
+#
 #  Redistribution and use in source and binary forms, with or without
 #  modification, are permitted provided that the following conditions
 #  are met:
-#  
+#
 #  Redistributions of source code must retain the above copyright notice,
 #  this list of conditions and the following disclaimer.
-#  
+#
 #  Redistributions in binary form must reproduce the above copyright
 #  notice, this list of conditions and the following disclaimer in the
 #  documentation and/or other materials provided with the distribution.
-#  
+#
 #  Neither the name of the project's author nor the names of its
 #  contributors may be used to endorse or promote products derived from
 #  this software without specific prior written permission.
-#  
+#
 #  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 #  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 #  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -30,7 +30,7 @@
 #  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#  
+#
 #
 import copy
 import urllib
@@ -44,6 +44,7 @@ collections.Mapping.register(UserDict.DictMixin)
 
 from hashlib import sha1
 import jsonrpc.jsonutil
+from jsonrpc.common import Response, Request
 
 __all__ = ['JSONRPCProxy', 'ProxyEvents']
 
@@ -55,13 +56,6 @@ class NewStyleBaseException(Exception):
 
     message = property(_get_message, _set_message)
 
-
-class JSONRPCException(NewStyleBaseException):
-	def __init__(self, rpcError):
-		Exception.__init__(self, rpcError.get('message'))
-		self.data = rpcError.get('data')
-		self.message = rpcError.get('message')
-		self.code = rpcError.get('code')
 
 class IDGen(object):
 	def __init__(self):
@@ -97,33 +91,6 @@ class ProxyEvents(object):
 	def proc_response(self, data):
 		'''allow a subclass to access the response data before it is returned to the user'''
 		return data
-
-
-class Request(object):
-
-	def __init__(self, id, method, args=None, kwargs=None):
-		self.version = '2.0'
-		self.id = id
-		self.method = method
-		self.args = args
-		self.kwargs = kwargs
-
-	def json_equivalent(self):
-		if kwargs.has_key('__args'):
-			raise ValueError, 'invalid argument name: __args'
-
-		result = dict(
-			jsonrpc = self.version,
-			id = self.id,
-			method = self.method
-		)
-
-		if self.args and self.kwargs:
-			self.kwargs['__args'] = self.args
-
-
-
-
 
 class JSONRPCProxy(object):
 	'''A class implementing a JSON-RPC Proxy.
@@ -182,9 +149,8 @@ class JSONRPCProxy(object):
 	def _get_postdata(self, args=None, kwargs=None):
 		args,kwargs = self._eventhandler.get_postdata(args, kwargs)
 		id = self._eventhandler.IDGen
-		return Request(id, self._serviceNams, args, kwargs)
-		postdata = jsonrpc.jsonutil.encode({	})
-		return postdata
+		result = Request(id, self._serviceName, args, kwargs)
+		return jsonrpc.jsonutil.encode(result)
 
 
 	def __call__(self, *args, **kwargs):
@@ -192,14 +158,10 @@ class JSONRPCProxy(object):
 		url = '%(host)s%(path)s' % dict(host = self.serviceURL, path = self._path)
 		postdata = self._get_postdata(args, kwargs)
 		respdata = urllib.urlopen(url, postdata).read()
-		resp = jsonrpc.jsonutil.decode(respdata)
+		resp = Response.from_dict(jsonrpc.jsonutil.decode(respdata))
+		resp = self._eventhandler.proc_response(resp)
 
-		if resp.get('error') != None:
-			raise JSONRPCException(resp['error'])
-		else:
-			resp = self._eventhandler.proc_response(resp)
-			result = resp['result']
-			return result
+		return resp.get_result()
 
 
 	def call(self, method, *args, **kwargs):
@@ -218,9 +180,15 @@ class JSONRPCProxy(object):
 		:param names: a dictionary { method: (args, kwargs) }
 		:returns: a list of pairs (result, error) where only one is not None
 		'''
+		result = None
 		if hasattr(methods, 'items'): methods = methods.items()
 		data = [ getattr(self, k)._get_postdata(*v) for k, v in methods ]
 		postdata = '[%s]' % ','.join(data)
 		respdata = urllib.urlopen(self.serviceURL, postdata).read()
-		resp = jsonrpc.jsonutil.decode(respdata)
-		return [(res.get('result'), res.get('error')) for res in resp]
+		resp = Response.from_json(respdata)
+		try:
+			result = resp.get_result()
+		except AttributeError:
+			result = [res.get_output() for res in resp]
+
+		return result

@@ -40,15 +40,13 @@ add and subtract:
    :tab-width: 2
    :lines: 2,3,34-
 
-To use the server, start the client this way:
+To use this server (which is included as jsonrpc.example_server), start it and the client in this way:
 
-.. code-block:: bash
+.. code-block:: console
 
-   # Python 2.6
-   % python2.6 -i -m jsonrpc.__main__ http://localhost:8007
+   % python -m jsonrpc.example_server &
 
-   # Python 2.7
-   % python2.7 -i -m jsonrpc http://localhost:8007
+   % python -i -m jsonrpc.__main__ http://localhost:8007
    
 .. code-block:: python
 

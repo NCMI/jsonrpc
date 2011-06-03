@@ -42,10 +42,10 @@ class ExampleServer(ServerEvents):
 	def log(self, responses, txrequest):
 		if isinstance(responses, list):
 			for response in responses:
-				msg = self.get_msg(response)
+				msg = self._get_msg(response)
 				print txrequest, msg
 		else:
-			msg = self.get_msg(response)
+			msg = self._get_msg(responses)
 			print txrequest, msg
 
 	def findmethod(self, method):
@@ -57,7 +57,7 @@ class ExampleServer(ServerEvents):
 	# helper methods
 	methods = set(['add', 'subtract'])
 	def _get_msg(self, response):
-		return ' '.join([response.id, response.result or response.error])
+		return ' '.join(str(x) for x in [response.id, response.result or response.error])
 
 	def subtract(self, a, b):
 		return a-b
@@ -65,7 +65,7 @@ class ExampleServer(ServerEvents):
 	def add(self, a, b):
 		return a+b
 
-root = JSON_RPC().customize(JSONRPCTest)
+root = JSON_RPC().customize(ExampleServer)
 site = server.Site(root)
 
 
