@@ -33,7 +33,8 @@
 #
 #
 import copy
-import urllib
+import cookielib
+import urllib2
 import urlparse
 import itertools
 import traceback
@@ -139,12 +140,19 @@ class JSONRPCProxy(object):
 		self.serviceURL, self._path = self._transformURL(host, path)
 		self.customize(self._eventhandler)
 
+		cj = cookielib.CookieJar()
+		self._opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
 
+
+
+	def _set_opener(self, opener):
+		self._opener  = opener
+		return self
 
 	def __getattr__(self, name):
 		if self._serviceName != None:
 			name = "%s.%s" % (self._serviceName, name)
-		return self.__class__(self.serviceURL, path=self._path, serviceName=name).customize(type(self._eventhandler))
+		return self.__class__(self.serviceURL, path=self._path, serviceName=name).customize(type(self._eventhandler))._set_opener(self._opener)
 
 
 	def _get_postdata(self, args=None, kwargs=None):
@@ -160,11 +168,15 @@ class JSONRPCProxy(object):
 		result.append('')
 		return '/'.join(result)
 
+	def _post(self, url, data):
+		return self._opener.open(url, data)
+
 	def __call__(self, *args, **kwargs):
 
 		url = self._get_url()
 		postdata = self._get_postdata(args, kwargs)
-		respdata = urllib.urlopen(url, postdata).read()
+		#respdata = urllib2.urlopen(url, postdata).read()
+		respdata = self._post(url, postdata).read()
 		resp = Response.from_dict(jsonrpc.jsonutil.decode(respdata))
 		resp = self._eventhandler.proc_response(resp)
 
@@ -191,7 +203,7 @@ class JSONRPCProxy(object):
 		if hasattr(methods, 'items'): methods = methods.items()
 		data = [ getattr(self, k)._get_postdata(*v) for k, v in methods ]
 		postdata = '[%s]' % ','.join(data)
-		respdata = urllib.urlopen(self._get_url(), postdata).read()
+		respdata = urllib2.urlopen(self._get_url(), postdata).read()
 		resp = Response.from_json(respdata)
 		try:
 			result = resp.get_result()

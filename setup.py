@@ -1,6 +1,6 @@
 from distutils.core import setup
 
-VERSION = "0.99a"
+VERSION = "0.99a01"
 URLBASE = "https://github.com/NCMI/jsonrpc"
 URLMAP = {
 	"daily": "tarball/master"
