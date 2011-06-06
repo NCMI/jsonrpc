@@ -82,7 +82,7 @@ class ProxyEvents(object):
 		self.IDGen = self.IDGen()
 		self.proxy = proxy
 
-	def get_postdata(self, args, kwargs):
+	def get_params(self, args, kwargs):
 		'''allow a subclass to modify the method's arguments
 
 		e.g. if an authentication token is necessary, the subclass can automatically insert it into every call'''
@@ -108,14 +108,15 @@ class JSONRPCProxy(object):
 	_eventhandler = ProxyEvents
 	def customize(self, eventhandler):
 		self._eventhandler = eventhandler(self)
+		return self
 
 	def _transformURL(self, serviceURL, path):
-		if serviceURL[-1] == '/':
+		if serviceURL.endswith('/'):
 			serviceURL = serviceURL[:-1]
-		if path[0] != '/':
-			path = '/%s'%path
-		if path[-1] != '/' and '?' not in path:
-			path = '%s/'%path
+		if path.endswith('/'):
+			path = path[:-1]
+		if path.startswith('/'):
+			path = path[1:]
 		return serviceURL, path
 
 
@@ -131,7 +132,7 @@ class JSONRPCProxy(object):
 		return cls(url, path, serviceName, ctxid)
 
 
-	def __init__(self, host, path='/jsonrpc', serviceName=None, *args, **kwargs):
+	def __init__(self, host, path='jsonrpc', serviceName=None, *args, **kwargs):
 		self.serviceURL = host
 		self._serviceName = serviceName
 		self._path = path
@@ -143,19 +144,25 @@ class JSONRPCProxy(object):
 	def __getattr__(self, name):
 		if self._serviceName != None:
 			name = "%s.%s" % (self._serviceName, name)
-		return self.__class__(self.serviceURL, path=self._path, serviceName=name)
+		return self.__class__(self.serviceURL, path=self._path, serviceName=name).customize(type(self._eventhandler))
 
 
 	def _get_postdata(self, args=None, kwargs=None):
-		args,kwargs = self._eventhandler.get_postdata(args, kwargs)
+		_args, _kwargs = self._eventhandler.get_params(args, kwargs)
 		id = self._eventhandler.IDGen
-		result = Request(id, self._serviceName, args, kwargs)
+		result = Request(id, self._serviceName, _args, _kwargs)
 		return jsonrpc.jsonutil.encode(result)
 
+	def _get_url(self):
+		result = [self.serviceURL]
+		if self._path:
+			result.append(self._path)
+		result.append('')
+		return '/'.join(result)
 
 	def __call__(self, *args, **kwargs):
 
-		url = '%(host)s%(path)s' % dict(host = self.serviceURL, path = self._path)
+		url = self._get_url()
 		postdata = self._get_postdata(args, kwargs)
 		respdata = urllib.urlopen(url, postdata).read()
 		resp = Response.from_dict(jsonrpc.jsonutil.decode(respdata))
@@ -184,7 +191,7 @@ class JSONRPCProxy(object):
 		if hasattr(methods, 'items'): methods = methods.items()
 		data = [ getattr(self, k)._get_postdata(*v) for k, v in methods ]
 		postdata = '[%s]' % ','.join(data)
-		respdata = urllib.urlopen(self.serviceURL, postdata).read()
+		respdata = urllib.urlopen(self._get_url(), postdata).read()
 		resp = Response.from_json(respdata)
 		try:
 			result = resp.get_result()

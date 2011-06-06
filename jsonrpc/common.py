@@ -30,6 +30,7 @@
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 #
+import warnings
 from jsonrpc.utilities import public
 import jsonrpc.jsonutil
 
@@ -80,18 +81,20 @@ codemap = {0: RPCError}
 codemap.update( (e.code, e) for e in RPCError.__subclasses__() )
 
 class JsonInstantiate:
-   @classmethod
-   def from_json(cls, json):
-      data = jsonrpc.jsonutil.decode(json)
-      if isinstance(data, list):
-         result = cls.from_list(data)
-      else:
-         result = cls.from_dict(data)
-      return result
+	@classmethod
+	def from_json(cls, json):
+		data = json
+		if hasattr(json, 'upper'):
+			data = jsonrpc.jsonutil.decode(json)
+		if isinstance(data, list):
+			result = cls.from_list(data)
+		else:
+			result = cls.from_dict(data)
+		return result
 
-   @classmethod
-   def from_list(cls, responses):
-      return [cls.from_dict(r) for r in responses]
+	@classmethod
+	def from_list(cls, responses):
+		return [cls.from_dict(r) for r in responses]
 
 
 class Request(object, JsonInstantiate):
@@ -127,6 +130,9 @@ class Request(object, JsonInstantiate):
 	def check(self):
 		if self.version != '2.0': raise InvalidRequest
 		if not isinstance(self.method, (str, unicode)): raise InvalidRequest
+		if not isinstance(self.id, (str, unicode, int, type(None))):
+			self.id = None
+			raise InvalidRequest
 
 
 	def json_equivalent(self):
@@ -137,7 +143,7 @@ class Request(object, JsonInstantiate):
 		if self.args and self.kwargs:
 			self.kwargs['__args'] = self.args
 		if self.kwargs:
-			result['params'] = self.kwargs
+			params = self.kwargs
 
 		return dict(
 			jsonrpc = self.version,

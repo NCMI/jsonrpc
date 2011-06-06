@@ -107,10 +107,7 @@ class JSON_RPC(Resource):
 
 			content = self.eventhandler.processcontent(content, request)
 
-			if isinstance(content, list):
-				content = jsonrpc.common.Request.from_list(content)
-			else:
-				content = jsonrpc.common.Request.from_dict(content)
+			content = jsonrpc.common.Request.from_json(content)
 
 			try:
 				if hasattr(content, 'check'):
@@ -179,6 +176,7 @@ class JSON_RPC(Resource):
 			except BaseException, e:
 				err = e
 		else: err = result
+
 		err = self.render_error(err, id)
 		self.eventhandler.log(err, request)
 

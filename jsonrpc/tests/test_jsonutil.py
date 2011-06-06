@@ -31,7 +31,7 @@
 #  
 #
 import json
-import unittest
+from twisted.trial import unittest
 import collections
 
 from jsonrpc import jsonutil

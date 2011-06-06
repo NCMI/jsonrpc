@@ -39,7 +39,7 @@ import jsonrpc.server
 import jsonrpc.jsonutil
 
 from twisted.web.test.test_web import DummyRequest
-from twisted.internet.defer import succeed
+from twisted.internet.defer import succeed, DeferredList
 from twisted.web.static import server
 
 def _render(resource, request):
@@ -98,6 +98,62 @@ class TestJSONRPCServer(unittest.TestCase):
 			self.assertTrue(resource.eventhandler.log.called)
 
 		return d
+
+	def test_requestid(self):
+		resource = jsonrpc.server.JSON_RPC()
+		resource.customize(SimpleEventHandler)
+
+		request0 = DummyRequest([''])
+		request0.getCookie = mock.Mock()
+		request0.content = StringIO.StringIO('{"jsonrpc": "2.0", "params": %s, "method": "echo", "id": "%s"}' % (jsonrpc.jsonutil.encode([self.param]), self.id_))
+
+		d0 = _render(resource, request0)
+		@d0.addCallback
+		def rendered(ignored):
+			self.assertEqual(len(request0.written), 1)
+			data = jsonrpc.jsonutil.decode(request0.written[0])
+
+			self.assertEqual(data["id"], self.id_)
+
+
+		request1 = DummyRequest([''])
+		request1.getCookie = mock.Mock()
+		request1.content = StringIO.StringIO('{"jsonrpc": "2.0", "params": %s, "method": "echo", "id": 1}' % jsonrpc.jsonutil.encode([self.param]))
+
+		d1 = _render(resource, request1)
+		@d1.addCallback
+		def rendered(ignored):
+			self.assertEqual(len(request1.written), 1)
+			data = jsonrpc.jsonutil.decode(request1.written[0])
+
+			self.assertEqual(data["id"], 1)
+
+
+		request3 = DummyRequest([''])
+		request3.getCookie = mock.Mock()
+		request3.content = StringIO.StringIO('{"jsonrpc": "2.0", "params": %s, "method": "echo", "id": []}' % jsonrpc.jsonutil.encode([self.param]))
+
+		d3 = _render(resource, request3)
+		@d3.addCallback
+		def rendered(ignored):
+			self.assertEqual(len(request3.written), 1)
+			data = jsonrpc.jsonutil.decode(request3.written[0])
+
+			self.assertNotEqual(data["id"], [])
+
+		request4 = DummyRequest([''])
+		request4.getCookie = mock.Mock()
+		request4.content = StringIO.StringIO('{"jsonrpc": "2.0", "params": %s, "method": "echo", "id": {}}' % jsonrpc.jsonutil.encode([self.param]))
+
+		d4 = _render(resource, request4)
+		@d4.addCallback
+		def rendered(ignored):
+			self.assertEqual(len(request4.written), 1)
+			data = jsonrpc.jsonutil.decode(request4.written[0])
+
+			self.assertNotEqual(data["id"], {})
+
+		return DeferredList([d0,d1,d3,d4])
 
 
 	def test_invalid_data(self):
