@@ -1,5 +1,3 @@
-# $Id: proxy.py,v 1.20 2011/05/26 20:19:17 edwlan Exp $
-
 #
 #  Copyright (c) 2011 Edward Langley
 #  All rights reserved.
