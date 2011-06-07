@@ -40,6 +40,7 @@ from jsonrpc.server import ServerEvents, JSON_RPC
 class ExampleServer(ServerEvents):
 	# inherited hooks
 	def log(self, responses, txrequest):
+		print txrequest.code,
 		if isinstance(responses, list):
 			for response in responses:
 				msg = self._get_msg(response)
