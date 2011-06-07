@@ -73,12 +73,11 @@ class ProxyEvents(object):
 	'''An event handler for JSONRPCProxy'''
 
 	#: an instance of a class which defines a __get__ method, used to generate a request id
-	IDGen = IDGen
+	IDGen = IDGen()
 
 
 	def __init__(self, proxy):
 		'''Allow a subclass to do its own initialization, gets any arguments leftover from __init__'''
-		self.IDGen = self.IDGen()
 		self.proxy = proxy
 
 	def get_params(self, args, kwargs):
