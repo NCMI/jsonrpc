@@ -1,5 +1,3 @@
-# $Id: jsonutil.py,v 1.2 2011/05/26 19:34:19 edwlan Exp $
-
 #  
 #  Copyright (c) 2011 Edward Langley
 #  All rights reserved.

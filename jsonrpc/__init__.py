@@ -1,5 +1,3 @@
-# $Id: __init__.py,v 1.2 2011/05/20 10:15:33 irees Exp $
-
 #  
 #  Copyright (c) 2011 Edward Langley
 #  All rights reserved.
