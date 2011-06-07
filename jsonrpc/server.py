@@ -118,9 +118,10 @@ class JSON_RPC(Resource):
 			except jsonrpc.common.RPCError, e:
 				self._ebRender(e, request, content.id if hasattr(content, 'id') else None)
 
-			d = threads.deferToThread(self._action, request, content)
-			d.addCallback(self._cbRender, request)
-			d.addErrback(self._ebRender, request, content.id if hasattr(content, 'id') else None)
+			else:
+				d = threads.deferToThread(self._action, request, content)
+				d.addCallback(self._cbRender, request)
+				d.addErrback(self._ebRender, request, content.id if hasattr(content, 'id') else None)
 		except BaseException, e:
 			self._ebRender(e, request, None)
 
@@ -154,15 +155,21 @@ class JSON_RPC(Resource):
 			if not islist: result = result[0]
 		else: result = None
 
-		self.eventhandler.log(result, request)
 		return result
 
 
+	def _setresponseCode(self, result, request):
+		code = 200
+		if not isinstance(result, list):
+			if result is not None and result.error is not None:
+				code = 500
+		request.setResponseCode(code)
 
 	def _cbRender(self, result, request):
+		self._setresponseCode(result, request)
+		self.eventhandler.log(result, request)
 		if result is not None:
 			request.setHeader("content-type", 'application/json')
-			request.setResponseCode(200)
 			result = jsonrpc.jsonutil.encode(result).encode('utf-8')
 			request.setHeader("content-length", len(result))
 			request.write(result)
@@ -178,10 +185,10 @@ class JSON_RPC(Resource):
 		else: err = result
 
 		err = self.render_error(err, id)
+		self._setresponseCode(err, request)
 		self.eventhandler.log(err, request)
 
 		request.setHeader("content-type", 'application/json')
-		request.setResponseCode(200)
 		result = jsonrpc.jsonutil.encode(err).encode('utf-8')
 		request.setHeader("content-length", len(result))
 		request.write(result)

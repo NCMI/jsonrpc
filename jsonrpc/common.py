@@ -136,7 +136,7 @@ class Request(object, JsonInstantiate):
 
 
 	def json_equivalent(self):
-		if self.kwargs.has_key('__args'):
+		if self.kwargs and self.kwargs.has_key('__args'):
 			raise ValueError, 'invalid argument name: __args'
 
 		params = self.args
