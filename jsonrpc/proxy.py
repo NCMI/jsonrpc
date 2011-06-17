@@ -200,7 +200,7 @@ class JSONRPCProxy(object):
 		if hasattr(methods, 'items'): methods = methods.items()
 		data = [ getattr(self, k)._get_postdata(*v) for k, v in methods ]
 		postdata = '[%s]' % ','.join(data)
-		respdata = urllib2.urlopen(self._get_url(), postdata).read()
+		respdata = self._post(self._get_url(), postdata).read()
 		resp = Response.from_json(respdata)
 		try:
 			result = resp.get_result()
