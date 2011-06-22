@@ -68,7 +68,7 @@ class ServerEvents(object):
 		'''Override to implement custom handling of the method result and request'''
 		return result
 
-	def log(self, response, txrequest):
+	def log(self, response, txrequest, error=False):
 		'''Override to implement custom error handling'''
 		pass
 
@@ -167,7 +167,7 @@ class JSON_RPC(Resource):
 
 	def _cbRender(self, result, request):
 		self._setresponseCode(result, request)
-		self.eventhandler.log(result, request)
+		self.eventhandler.log(result, request, error=False)
 		if result is not None:
 			request.setHeader("content-type", 'application/json')
 			result = jsonrpc.jsonutil.encode(result).encode('utf-8')
@@ -176,17 +176,16 @@ class JSON_RPC(Resource):
 		request.finish()
 
 	def _ebRender(self, result, request, id, finish=True):
-
 		err = None
 		if not isinstance(result, BaseException):
 			try: result.raiseException()
 			except BaseException, e:
 				err = e
+				self.eventhandler.log(err, request, error=True)
 		else: err = result
 
 		err = self.render_error(err, id)
 		self._setresponseCode(err, request)
-		self.eventhandler.log(err, request)
 
 		request.setHeader("content-type", 'application/json')
 		result = jsonrpc.jsonutil.encode(err).encode('utf-8')

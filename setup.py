@@ -1,11 +1,11 @@
 from distutils.core import setup
 
-VERSION = "0.99a01"
+VERSION = "0.99a02"
 URLBASE = "https://github.com/NCMI/jsonrpc"
 URLMAP = {
 	"daily": "tarball/master",
-	"0.99a01": "0.99a",
-	"0.99a02": "tarball/0.99a2",
+	"0.99a01": "tarball/0.99a",
+	"0.99a02": "tarball/0.99a02",
 }
 
 if __name__ == "__main__":
@@ -15,8 +15,8 @@ if __name__ == "__main__":
 		description='A JSON-RPC 2.0 client-server library',
 		author='Edward Langley',
 		author_email='langleyedward@gmail.com',
-		url='https://github.com/NCMI/jsonrpc',
-		download_url=URLMAP.get(VERSION, URLMAP['daily']),
+		url=URLBASE,
+		download_url='/'.join([URLBASE, URLMAP.get(VERSION, URLMAP['daily'])]),
 		packages=[
 			'jsonrpc'
 			],
