@@ -57,7 +57,7 @@ def _render(resource, request):
         raise ValueError("Unexpected return value: %r" % (result,))
 
 class SimpleEventHandler(jsonrpc.server.ServerEvents):
-	def log(self, result, request): pass
+	def log(self, result, request, error=False): pass
 
 	def findmethod(self, method):
 		if method in set(['echo', 'add']):
