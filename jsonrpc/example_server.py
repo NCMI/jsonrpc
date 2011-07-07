@@ -39,7 +39,7 @@ from jsonrpc.server import ServerEvents, JSON_RPC
 
 class ExampleServer(ServerEvents):
 	# inherited hooks
-	def log(self, responses, txrequest):
+	def log(self, responses, txrequest, error):
 		print txrequest.code,
 		if isinstance(responses, list):
 			for response in responses:
