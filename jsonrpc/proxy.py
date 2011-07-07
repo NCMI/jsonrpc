@@ -162,7 +162,7 @@ class JSONRPCProxy(object):
 		result = [self.serviceURL]
 		if self._path:
 			result.append(self._path)
-		result.append('')
+		#result.append('')
 		return '/'.join(result)
 
 	def _post(self, url, data):
