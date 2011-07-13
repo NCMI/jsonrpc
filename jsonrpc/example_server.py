@@ -1,3 +1,4 @@
+from __future__ import print_function
 #
 #  Copyright (c) 2011 Edward Langley
 #  All rights reserved.
@@ -40,14 +41,14 @@ from jsonrpc.server import ServerEvents, JSON_RPC
 class ExampleServer(ServerEvents):
 	# inherited hooks
 	def log(self, responses, txrequest, error):
-		print txrequest.code,
+		print(txrequest.code, end=' ')
 		if isinstance(responses, list):
 			for response in responses:
 				msg = self._get_msg(response)
-				print txrequest, msg
+				print(txrequest, msg)
 		else:
 			msg = self._get_msg(responses)
-			print txrequest, msg
+			print(txrequest, msg)
 
 	def findmethod(self, method):
 		if method in self.methods:
@@ -72,6 +73,6 @@ site = server.Site(root)
 
 # 8007 is the port you want to run under. Choose something >1024
 PORT = 8007
-print 'Listening on port %d...' % PORT
+print('Listening on port %d...' % PORT)
 reactor.listenTCP(PORT, site)
 reactor.run()

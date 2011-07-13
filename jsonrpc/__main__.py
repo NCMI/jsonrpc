@@ -48,7 +48,7 @@ def iterate(iter_):
 			if rollback != []:
 				to_yield = rollback.pop(0)
 			else:
-				to_yield = iter_.next()
+				to_yield = next(iter_)
 
 
 			result = (yield to_yield)
@@ -64,5 +64,5 @@ if __name__ == '__main__':
 	parser.add_argument('host', metavar='HOST')
 	args = parser.parse_args(sys.argv[1:])
 
-	print args
+	print(args)
 	server = main(args.host, args.path)
