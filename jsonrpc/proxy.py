@@ -123,10 +123,10 @@ class JSONRPCProxy(object):
 	def from_url(cls, url, ctxid=None, serviceName=None):
 		'''Create a JSONRPCProxy from a URL'''
 		urlsp = urlparse.urlsplit(url)
-		url = '%s://%s' % (urlsp.scheme, urlsp.netloc)
+		url = '{0}://{1}'.format(urlsp.scheme, urlsp.netloc)
 		path = urlsp.path
-		if urlsp.query: path = '%s?%s' % (path, urlsp.query)
-		if urlsp.fragment: path = '%s#%s' % (path, urlsp.fragment)
+		if urlsp.query: path = '{0}?{1}'.format(path, urlsp.query)
+		if urlsp.fragment: path = '{0}#{1}'.format(path, urlsp.fragment)
 		return cls(url, path, serviceName, ctxid)
 
 
@@ -148,7 +148,7 @@ class JSONRPCProxy(object):
 
 	def __getattr__(self, name):
 		if self._serviceName != None:
-			name = "%s.%s" % (self._serviceName, name)
+			name = "{0}.{1}".format(self._serviceName, name)
 		return self.__class__(self.serviceURL, path=self._path, serviceName=name).customize(type(self._eventhandler))._set_opener(self._opener)
 
 
@@ -199,7 +199,7 @@ class JSONRPCProxy(object):
 		result = None
 		if hasattr(methods, 'items'): methods = methods.items()
 		data = [ getattr(self, k)._get_postdata(*v) for k, v in methods ]
-		postdata = '[%s]' % ','.join(data)
+		postdata = '{0}'.format(','.join(data))
 		respdata = self._post(self._get_url(), postdata).read()
 		resp = Response.from_json(respdata)
 		try:
