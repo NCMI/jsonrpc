@@ -99,6 +99,7 @@ class JSON_RPC(Resource):
 
 
 	def render(self, request):
+		result = ''
 		request.content.seek(0, 0)
 		try:
 			try:
@@ -119,13 +120,21 @@ class JSON_RPC(Resource):
 				self._ebRender(e, request, content.id if hasattr(content, 'id') else None)
 
 			else:
-				d = threads.deferToThread(self._action, request, content)
-				d.addCallback(self._cbRender, request)
-				d.addErrback(self._ebRender, request, content.id if hasattr(content, 'id') else None)
+				result = self._defer(request, content)
 		except BaseException, e:
 			self._ebRender(e, request, None)
 
 		return server.NOT_DONE_YET
+
+
+	def _defer(self, request, contents):
+		# Defer to thread. Override this method if you are using a different ThreadPool,
+		# 	or if you want to return immediately.
+		d = threads.deferToThread(self._action, request, contents)
+		d.addCallback(self._cbRender, request)
+		d.addErrback(self._ebRender, request, content.id if hasattr(content, 'id') else None)
+		return server.NOT_DONE_YET
+
 
 	def _action(self, request, contents, **kw):
 		result = []
