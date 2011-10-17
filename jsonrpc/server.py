@@ -37,6 +37,7 @@ import jsonrpc.common
 # Twisted imports
 from twisted.web import server
 from twisted.internet import threads
+from twisted.internet import defer
 from twisted.web.resource import Resource
 
 
@@ -119,7 +120,7 @@ class JSON_RPC(Resource):
 				self._ebRender(e, request, content.id if hasattr(content, 'id') else None)
 
 			else:
-				d = threads.deferToThread(self._action, request, content)
+				d = self._action(request, content)
 				d.addCallback(self._cbRender, request)
 				d.addErrback(self._ebRender, request, content.id if hasattr(content, 'id') else None)
 		except BaseException, e:
@@ -135,27 +136,42 @@ class JSON_RPC(Resource):
 
 		if contents == []: raise jsonrpc.common.InvalidRequest
 
+		def callmethod(request, rpcrequest, add, **kwargs):
+			add.update(kwargs)
+			result = self.eventhandler.callmethod(request, rpcrequest, **add)
+			return result
+
+		deferreds = []
 		for rpcrequest in contents:
 			res = None
+			add = copy.deepcopy(rpcrequest.extra)
+			add.update(kw)
+			deferreds.append(threads.deferToThread(callmethod, request, rpcrequest, add))
+		deferreds = defer.DeferredList(deferreds, consumeErrors=True)
 
-			try:
-				add = copy.deepcopy(rpcrequest.extra)
-				add.update(kw)
-				res = jsonrpc.common.Response(id=rpcrequest.id, result=self.eventhandler.callmethod(request, rpcrequest, **add))
-				res = self.eventhandler.processrequest(res, request.args, **kw)
-			except Exception, e:
-				res = self.render_error(e, rpcrequest.id)
+		@deferreds.addCallback
+		def helper(deferredresults):
+			result = []
+			for success, methodresult in deferredresults:
+				res = None
+				if success:
+					res = jsonrpc.common.Response(id=rpcrequest.id, result=methodresult)
+					res = self.eventhandler.processrequest(res, request.args, **kw)
+				else:
+					try:
+						methodresult.raiseException()
+					except Exception, e:
+						res = self.render_error(e, rpcrequest.id)
 
-			if res.id is not None:
-				result.append(res)
+				if res.id is not None:
+					result.append(res)
 
+			if result != []:
+				if not islist: result = result[0]
+			else: result = None
+			return result
 
-
-		if result != []:
-			if not islist: result = result[0]
-		else: result = None
-
-		return result
+		return deferreds
 
 
 	def _setresponseCode(self, result, request):
@@ -166,32 +182,38 @@ class JSON_RPC(Resource):
 		request.setResponseCode(code)
 
 	def _cbRender(self, result, request):
-		self._setresponseCode(result, request)
-		self.eventhandler.log(result, request, error=False)
-		if result is not None:
-			request.setHeader("content-type", 'application/json')
-			result = jsonrpc.jsonutil.encode(result).encode('utf-8')
-			request.setHeader("content-length", len(result))
-			request.write(result)
-		request.finish()
+		@threads.deferToThread
+		def _inner(*args, **_):
+			self._setresponseCode(result, request)
+			self.eventhandler.log(result, request, error=False)
+			if result is not None:
+				request.setHeader("content-type", 'application/json')
+				result_ = jsonrpc.jsonutil.encode(result).encode('utf-8')
+				request.setHeader("content-length", len(result_))
+				request.write(result_)
+			request.finish()
+		return _inner
 
 	def _ebRender(self, result, request, id, finish=True):
-		err = None
-		if not isinstance(result, BaseException):
-			try: result.raiseException()
-			except BaseException, e:
-				err = e
-				self.eventhandler.log(err, request, error=True)
-		else: err = result
+		@threads.deferToThread
+		def _inner(*args, **_):
+			err = None
+			if not isinstance(result, BaseException):
+				try: result.raiseException()
+				except BaseException, e:
+					err = e
+					self.eventhandler.log(err, request, error=True)
+			else: err = result
 
-		err = self.render_error(err, id)
-		self._setresponseCode(err, request)
+			err = self.render_error(err, id)
+			self._setresponseCode(err, request)
 
-		request.setHeader("content-type", 'application/json')
-		result = jsonrpc.jsonutil.encode(err).encode('utf-8')
-		request.setHeader("content-length", len(result))
-		request.write(result)
-		if finish: request.finish()
+			request.setHeader("content-type", 'application/json')
+			result_ = jsonrpc.jsonutil.encode(err).encode('utf-8')
+			request.setHeader("content-length", len(result_))
+			request.write(result_)
+			if finish: request.finish()
+		return _inner
 
 
 	def render_error(self, e, id):
