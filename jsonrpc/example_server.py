@@ -59,6 +59,7 @@ class ExampleServer(ServerEvents):
 	# helper methods
 	methods = set(['add', 'subtract'])
 	def _get_msg(self, response):
+		print('response', repr(response))
 		return ' '.join(str(x) for x in [response.id, response.result or response.error])
 
 	def subtract(self, a, b):
