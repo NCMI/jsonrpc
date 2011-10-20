@@ -77,12 +77,15 @@ class ServerEvents(object):
 		'''Given the freshly decoded content of the request, return what content should be used'''
 		return content
 
-	def setResponseCode(self, result, request):
-		code = 200
+	def getresponsecode(self, result):
+		# returns 200 so that the python client can see something useful
+		return 200
+		# for example
+		#code = 200
 		#if not isinstance(result, list):
 		#	if result is not None and result.error is not None:
 		#		code = result.error.code or 500
-		request.setResponseCode(code)
+		#return code
 
 
 
@@ -184,7 +187,8 @@ class JSON_RPC(Resource):
 	def _cbRender(self, result, request):
 		@threads.deferToThread
 		def _inner(*args, **_):
-			self.eventhandler.setResponseCode(result, request)
+			code = self.eventhandler.getresponsecode(result, request)
+			request.setResponseCode(code)
 			self.eventhandler.log(result, request, error=False)
 			if result is not None:
 				request.setHeader("content-type", 'application/json')
@@ -206,7 +210,9 @@ class JSON_RPC(Resource):
 			else: err = result
 
 			err = self.render_error(err, id)
-			self.eventhandler.setResponseCode(err, request)
+
+			code = self.eventhandler.getresponsecode(result, request)
+			request.setResponseCode(code)
 
 			request.setHeader("content-type", 'application/json')
 			result_ = jsonrpc.jsonutil.encode(err).encode('utf-8')
