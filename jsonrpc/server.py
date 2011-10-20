@@ -77,6 +77,13 @@ class ServerEvents(object):
 		'''Given the freshly decoded content of the request, return what content should be used'''
 		return content
 
+	def setResponseCode(self, result, request):
+		code = 200
+		#if not isinstance(result, list):
+		#	if result is not None and result.error is not None:
+		#		code = result.error.code or 500
+		request.setResponseCode(code)
+
 
 
 ## Base class providing a JSON-RPC 2.0 implementation with 2 customizable hooks
@@ -174,17 +181,10 @@ class JSON_RPC(Resource):
 		return deferreds
 
 
-	def _setresponseCode(self, result, request):
-		code = 200
-		if not isinstance(result, list):
-			if result is not None and result.error is not None:
-				code = 500
-		request.setResponseCode(code)
-
 	def _cbRender(self, result, request):
 		@threads.deferToThread
 		def _inner(*args, **_):
-			self._setresponseCode(result, request)
+			self.eventhandler.setResponseCode(result, request)
 			self.eventhandler.log(result, request, error=False)
 			if result is not None:
 				request.setHeader("content-type", 'application/json')
@@ -206,7 +206,7 @@ class JSON_RPC(Resource):
 			else: err = result
 
 			err = self.render_error(err, id)
-			self._setresponseCode(err, request)
+			self.eventhandler.setResponseCode(err, request)
 
 			request.setHeader("content-type", 'application/json')
 			result_ = jsonrpc.jsonutil.encode(err).encode('utf-8')
