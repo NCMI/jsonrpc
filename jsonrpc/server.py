@@ -87,6 +87,11 @@ class ServerEvents(object):
 		#		code = result.error.code or 500
 		#return code
 
+	def defer(self, method, *a, **kw):
+		# Defer to thread. Override this method if you are using a different ThreadPool,
+		# 	or if you want to return immediately.
+		return threads.deferToThread(method, *a, **kw)
+
 
 
 ## Base class providing a JSON-RPC 2.0 implementation with 2 customizable hooks
@@ -110,6 +115,7 @@ class JSON_RPC(Resource):
 
 
 	def render(self, request):
+		result = ''
 		request.content.seek(0, 0)
 		try:
 			try:
@@ -138,6 +144,8 @@ class JSON_RPC(Resource):
 
 		return server.NOT_DONE_YET
 
+
+
 	def _action(self, request, contents, **kw):
 		result = []
 
@@ -156,7 +164,7 @@ class JSON_RPC(Resource):
 			res = None
 			add = copy.deepcopy(rpcrequest.extra)
 			add.update(kw)
-			deferreds.append(threads.deferToThread(callmethod, request, rpcrequest, add))
+			deferreds.append(self.eventhandler.defer(callmethod, request, rpcrequest, add))
 		deferreds = defer.DeferredList(deferreds, consumeErrors=True)
 
 		@deferreds.addCallback
@@ -185,9 +193,9 @@ class JSON_RPC(Resource):
 
 
 	def _cbRender(self, result, request):
-		@threads.deferToThread
+		@self.eventhandler.defer
 		def _inner(*args, **_):
-			code = self.eventhandler.getresponsecode(result, request)
+			code = self.eventhandler.getresponsecode(result)
 			request.setResponseCode(code)
 			self.eventhandler.log(result, request, error=False)
 			if result is not None:
@@ -199,7 +207,7 @@ class JSON_RPC(Resource):
 		return _inner
 
 	def _ebRender(self, result, request, id, finish=True):
-		@threads.deferToThread
+		@self.eventhandler.defer
 		def _inner(*args, **_):
 			err = None
 			if not isinstance(result, BaseException):
@@ -208,10 +216,9 @@ class JSON_RPC(Resource):
 					err = e
 					self.eventhandler.log(err, request, error=True)
 			else: err = result
-
 			err = self.render_error(err, id)
 
-			code = self.eventhandler.getresponsecode(result, request)
+			code = self.eventhandler.getresponsecode(result)
 			request.setResponseCode(code)
 
 			request.setHeader("content-type", 'application/json')
@@ -220,7 +227,6 @@ class JSON_RPC(Resource):
 			request.write(result_)
 			if finish: request.finish()
 		return _inner
-
 
 	def render_error(self, e, id):
 		if isinstance(e, jsonrpc.common.RPCError):
