@@ -88,17 +88,19 @@ class ServerEvents(object):
 
 		NOTE: if an error code is returned, the client error messages will be much less helpful!
 
+		for example
+
+			def getresponsecode(self, result):
+		  		code = 200
+		  		if not isinstance(result, list):
+		  			if result is not None and result.error is not None:
+		  				code = result.error.code or 500
+		  		return code
+
+
 		:returns: :py:class:`int`'''
 		# returns 200 so that the python client can see something useful
 		return 200
-
-		# for example
-		#def getresponsecode(self, result):
-		#  code = 200
-		#  if not isinstance(result, list):
-		#  	if result is not None and result.error is not None:
-		#  		code = result.error.code or 500
-		#  return code
 
 	def defer(self, method, *a, **kw):
 		'''Defer to thread. Override this method if you are using a different ThreadPool, or if you want to return immediately.
