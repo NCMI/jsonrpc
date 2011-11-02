@@ -47,49 +47,63 @@ collections.Mapping.register(UserDict.DictMixin)
 
 @public
 class ServerEvents(object):
-	'''Subclass this and pass to :py:meth:`jsonrpc.customize` to customize the jsonrpc server'''
+	'''Subclass this and pass to :py:meth:`JSON_RPC.customize` to customize the JSON-RPC server'''
 
 	def __init__(self, server):
 		#: A link to the JSON-RPC server instance
 		self.server = server
 
 	def callmethod(self, txrequest, rpcrequest, **extra):
-		'''Finds the method and calls it with the specified args'''
+		'''Find the method and call it with the specified args
+
+		:returns: the result of the method'''
 		method = self.findmethod(rpcrequest.method)
 		if method is None: raise jsonrpc.common.MethodNotFound
 		extra.update(rpcrequest.kwargs)
 
 		return method(*rpcrequest.args, **extra)
 
-	def findmethod(self, method):
-		'''Override to allow server to define methods'''
-		return lambda *a, **kw: 'Test Data'
+	def findmethod(self, method_name):
+		'''Return the callable associated with the method name
+
+		:returns: a callable'''
+		raise NotImplementedError
 
 	def processrequest(self, result, args, **kw):
 		'''Override to implement custom handling of the method result and request'''
 		return result
 
 	def log(self, response, txrequest, error=False):
-		'''Override to implement custom error handling'''
+		'''Override to implement custom logging'''
 		pass
 
 	def processcontent(self, content, request):
-		'''Given the freshly decoded content of the request, return what content should be used'''
+		'''Given the freshly decoded content of the request, return the content that should be used
+
+		:returns: an object which implements the :py:class:`collections.MutableMapping` interface'''
 		return content
 
 	def getresponsecode(self, result):
+		'''Take the result, and return an appropriate HTTP response code, returns 200 by default
+
+		NOTE: if an error code is returned, the client error messages will be much less helpful!
+
+		:returns: :py:class:`int`'''
 		# returns 200 so that the python client can see something useful
 		return 200
+
 		# for example
-		#code = 200
-		#if not isinstance(result, list):
-		#	if result is not None and result.error is not None:
-		#		code = result.error.code or 500
-		#return code
+		#def getresponsecode(self, result):
+		#  code = 200
+		#  if not isinstance(result, list):
+		#  	if result is not None and result.error is not None:
+		#  		code = result.error.code or 500
+		#  return code
 
 	def defer(self, method, *a, **kw):
-		# Defer to thread. Override this method if you are using a different ThreadPool,
-		# 	or if you want to return immediately.
+		'''Defer to thread. Override this method if you are using a different ThreadPool, or if you want to return immediately.
+
+		:returns: :py:class:`twisted.internet.defer.Deferred`'''
 		return threads.deferToThread(method, *a, **kw)
 
 
@@ -100,7 +114,10 @@ class JSON_RPC(Resource):
 	'''This class implements a JSON-RPC 2.0 server as a Twisted Resource'''
 	isLeaf = True
 
-	#: set by :py:meth:`customize` used to change the behavior of the server
+	### NOTE: these comments are used by Sphinx as documentation.
+	#: An instance of :py:class:`ServerEvents` which supplies callbacks to
+	#: customize the operation of the server.  The proper way to initialize this
+	#: is either to subclass and set it manually, or, preferably, to call :py:meth:`customize`.
 	eventhandler = ServerEvents
 
 	def customize(self, eventhandler):
