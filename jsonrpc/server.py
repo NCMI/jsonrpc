@@ -30,6 +30,7 @@
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 #
+import traceback
 import jsonrpc.jsonutil
 from jsonrpc.utilities import public
 import jsonrpc.common
@@ -40,6 +41,7 @@ from twisted.internet import threads
 from twisted.internet import defer
 from twisted.web.resource import Resource
 
+import abc
 
 import copy
 import UserDict, collections
@@ -49,6 +51,11 @@ collections.Mapping.register(UserDict.DictMixin)
 class ServerEvents(object):
 	'''Subclass this and pass to :py:meth:`JSON_RPC.customize` to customize the JSON-RPC server'''
 
+	DEBUG = False
+
+	#: an object defining a 'get' method which contains the methods
+	methods = None
+
 	def __init__(self, server):
 		#: A link to the JSON-RPC server instance
 		self.server = server
@@ -57,17 +64,35 @@ class ServerEvents(object):
 		'''Find the method and call it with the specified args
 
 		:returns: the result of the method'''
-		method = self.findmethod(rpcrequest.method)
-		if method is None: raise jsonrpc.common.MethodNotFound
+
 		extra.update(rpcrequest.kwargs)
 
-		return method(*rpcrequest.args, **extra)
+		method, postprocess_result = self.findmethod(rpcrequest.method, rpcrequest.args, extra), False
+		if hasattr('method', '__iter__'):
+			method, postprocess_result = method
 
-	def findmethod(self, method_name):
+		if self.DEBUG:
+			# Debugging: raise AssertionError if type of method is invalid
+			assert method is None or callable(method), 'the returned method is not callable'
+
+		if not callable(method): raise jsonrpc.common.MethodNotFound
+
+		result = method(*rpcrequest.args, **extra)
+
+		#if the result needs to be adjusted/validated, do it
+		if postprocess_result:
+			result = self.methods.postprocess(rpcrequest.method, result, rpcrequest.args, extra)
+
+		return result
+
+	def findmethod(self, method_name, args=None, kwargs=None):
 		'''Return the callable associated with the method name
 
-		:returns: a callable'''
-		raise NotImplementedError
+		:returns: a callable or None if the method is not found'''
+		if self.methods is not None:
+			return self.methods.get_method(method_name)
+		else:
+			raise NotImplementedError
 
 	def processrequest(self, result, args, **kw):
 		'''Override to implement custom handling of the method result and request'''
@@ -91,11 +116,11 @@ class ServerEvents(object):
 		for example
 
 			def getresponsecode(self, result):
-		  		code = 200
-		  		if not isinstance(result, list):
-		  			if result is not None and result.error is not None:
-		  				code = result.error.code or 500
-		  		return code
+				code = 200
+				if not isinstance(result, list):
+					if result is not None and result.error is not None:
+						code = result.error.code or 500
+				return code
 
 
 		:returns: :py:class:`int`'''
@@ -107,6 +132,19 @@ class ServerEvents(object):
 
 		:returns: :py:class:`twisted.internet.defer.Deferred`'''
 		return threads.deferToThread(method, *a, **kw)
+
+	def defer_with_rpcrequest(self, method, rpcrequest, *a, **kw):
+		d = threads.deferToThread(method, rpcrequest, *a, **kw)
+
+		@d.addCallback
+		def _inner(result):
+			return result, rpcrequest
+		@d.addErrback
+		def _inner(result):
+			result.rpcrequest = rpcrequest
+			return result
+
+		return d
 
 
 
@@ -173,7 +211,7 @@ class JSON_RPC(Resource):
 
 		if contents == []: raise jsonrpc.common.InvalidRequest
 
-		def callmethod(request, rpcrequest, add, **kwargs):
+		def callmethod(rpcrequest, request, add, **kwargs):
 			add.update(kwargs)
 			result = self.eventhandler.callmethod(request, rpcrequest, **add)
 			return result
@@ -183,25 +221,31 @@ class JSON_RPC(Resource):
 			res = None
 			add = copy.deepcopy(rpcrequest.extra)
 			add.update(kw)
-			deferreds.append(self.eventhandler.defer(callmethod, request, rpcrequest, add))
+			deferreds.append(self.eventhandler.defer_with_rpcrequest(callmethod, rpcrequest, request, add))
 		deferreds = defer.DeferredList(deferreds, consumeErrors=True)
 
 		@deferreds.addCallback
 		def helper(deferredresults):
 			result = []
-			for success, methodresult in deferredresults:
-				res = None
-				if success:
-					res = jsonrpc.common.Response(id=rpcrequest.id, result=methodresult)
-					res = self.eventhandler.processrequest(res, request.args, **kw)
-				else:
-					try:
-						methodresult.raiseException()
-					except Exception, e:
-						res = self.render_error(e, rpcrequest.id)
+			try:
+				for success, methodresult in deferredresults:
+					res = None
+					if success:
+						methodresult, rpcrequest = methodresult
+						res = jsonrpc.common.Response(id=rpcrequest.id, result=methodresult)
+						res = self.eventhandler.processrequest(res, request.args, **kw)
+					else:
+						rpcrequest = methodresult.rpcrequest
+						try:
+							methodresult.raiseException()
+						except Exception, e:
+							res = self.render_error(e, rpcrequest.id)
 
-				if res.id is not None:
-					result.append(res)
+					if res.id is not None:
+						result.append(res)
+			except Exception, e:
+				traceback.print_exc()
+				raise
 
 			if result != []:
 				if not islist: result = result[0]
