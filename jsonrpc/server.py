@@ -90,7 +90,7 @@ class ServerEvents(object):
 
 		:returns: a callable or None if the method is not found'''
 		if self.methods is not None:
-			return self.methods.get_method(method_name)
+			return self.methods.get(method_name)
 		else:
 			raise NotImplementedError
 
@@ -134,7 +134,7 @@ class ServerEvents(object):
 		return threads.deferToThread(method, *a, **kw)
 
 	def defer_with_rpcrequest(self, method, rpcrequest, *a, **kw):
-		d = threads.deferToThread(method, rpcrequest, *a, **kw)
+		d = self.defer(method, rpcrequest, *a, **kw)
 
 		@d.addCallback
 		def _inner(result):
@@ -177,7 +177,9 @@ class JSON_RPC(Resource):
 		try:
 			try:
 				content = jsonrpc.jsonutil.decode(request.content.read())
-			except ValueError: raise jsonrpc.common.ParseError
+			except ValueError:
+				self.eventhandler.log(None, request, True)
+				raise jsonrpc.common.ParseError
 
 			content = self.eventhandler.processcontent(content, request)
 
@@ -212,6 +214,7 @@ class JSON_RPC(Resource):
 		if contents == []: raise jsonrpc.common.InvalidRequest
 
 		def callmethod(rpcrequest, request, add, **kwargs):
+			print 'jsonrpc.server callmethod: %s, %s, %s, %s' % (rpcrequest, request, add, kwargs)
 			add.update(kwargs)
 			result = self.eventhandler.callmethod(request, rpcrequest, **add)
 			return result
@@ -240,6 +243,7 @@ class JSON_RPC(Resource):
 							methodresult.raiseException()
 						except Exception, e:
 							res = self.render_error(e, rpcrequest.id)
+							self.eventhandler.log(res, request, error=True)
 
 					if res.id is not None:
 						result.append(res)
