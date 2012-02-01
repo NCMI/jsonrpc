@@ -77,7 +77,7 @@ highlight_language = 'python'
 master_doc = 'index'
 
 # General information about the project.
-project = u'JSONRPC'
+project = u'JSON-RPC'
 copyright = u'2011, Edward Langley'
 
 # The version info for the project you're documenting, acts as replacement for
