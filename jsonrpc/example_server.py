@@ -50,7 +50,7 @@ class ExampleServer(ServerEvents):
 			msg = self._get_msg(responses)
 			print(txrequest, msg)
 
-	def findmethod(self, method):
+	def findmethod(self, method, args=None, kwargs=None):
 		if method in self.methods:
 			return getattr(self, method)
 		else:
