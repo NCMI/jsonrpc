@@ -43,6 +43,7 @@ collections.Mapping.register(UserDict.DictMixin)
 
 from hashlib import sha1
 import jsonrpc.jsonutil
+from jsonrpc import __version__
 from jsonrpc.common import Response, Request
 
 __all__ = ['JSONRPCProxy', 'ProxyEvents']
@@ -89,6 +90,17 @@ class ProxyEvents(object):
 	def proc_response(self, data):
 		'''allow a subclass to access the response data before it is returned to the user'''
 		return data
+
+
+class JSONRPCProcessor(urllib2.BaseHandler):
+	def __init__(self):
+		self.handler_order = 100
+
+	def http_request(self, request):
+		request.add_header('content-type', 'application/json')
+		request.add_header('user-agent', 'jsonrpc/'+__version__)
+		return request
+
 
 class JSONRPCProxy(object):
 	'''A class implementing a JSON-RPC Proxy.
@@ -139,7 +151,7 @@ class JSONRPCProxy(object):
 
 		cj = cookielib.CookieJar()
 		self._opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
-
+		self._opener.add_handler(JSONRPCProcessor())
 
 
 	def _set_opener(self, opener):
