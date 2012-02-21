@@ -1,11 +1,13 @@
 from distutils.core import setup
 
-VERSION = "0.99a02"
+VERSION = "1.2"
 URLBASE = "https://github.com/NCMI/jsonrpc"
 URLMAP = {
 	"daily": "tarball/master",
 	"0.99a01": "tarball/0.99a",
 	"0.99a02": "tarball/0.99a02",
+	"1.1": "tarball/1.1",
+	"1.2": "tarball/1.2",
 }
 
 if __name__ == "__main__":
