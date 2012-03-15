@@ -214,7 +214,6 @@ class JSON_RPC(Resource):
 		if contents == []: raise jsonrpc.common.InvalidRequest
 
 		def callmethod(rpcrequest, request, add, **kwargs):
-			print 'jsonrpc.server callmethod: %s, %s, %s, %s' % (rpcrequest, request, add, kwargs)
 			add.update(kwargs)
 			result = self.eventhandler.callmethod(request, rpcrequest, **add)
 			return result
