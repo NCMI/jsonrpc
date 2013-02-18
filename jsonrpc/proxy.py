@@ -101,6 +101,7 @@ class JSONRPCProcessor(urllib2.BaseHandler):
 		request.add_header('user-agent', 'jsonrpc/'+__version__)
 		return request
 
+	https_request = http_request
 
 class JSONRPCProxy(object):
 	'''A class implementing a JSON-RPC Proxy.
